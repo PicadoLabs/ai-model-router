@@ -1,4 +1,4 @@
-﻿import React from 'react';
+import React from 'react';
 import { 
   Activity, 
   Compass, 
@@ -6,8 +6,11 @@ import {
   Cpu, 
   BarChart3, 
   Sliders, 
-  Radio
+  Radio,
+  Sun,
+  Moon
 } from 'lucide-react';
+import { useTheme } from '../ThemeContext';
 
 interface NavbarProps {
   activeTab: string;
@@ -16,6 +19,7 @@ interface NavbarProps {
 }
 
 export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab, onlineStatus = true }) => {
+  const { theme, toggleTheme } = useTheme();
   const navItems = [
     { id: 'dashboard', label: 'Control Room', icon: Activity },
     { id: 'playground', label: 'Playground', icon: Compass },
@@ -27,7 +31,7 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab, onlineS
   ];
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-[#1F2833] bg-[#07090C]/90 backdrop-blur-md">
+    <header className="sticky top-0 z-50 w-full border-b border-border-subtle bg-bg-primary/90 backdrop-blur-md">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
         
         {/* Brand / Logo */}
@@ -35,7 +39,7 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab, onlineS
           onClick={() => setActiveTab('dashboard')}
           className="flex items-center gap-3 cursor-pointer select-none shrink-0 group"
         >
-          <div className="w-10 h-10 rounded-xl bg-[#0D1117] border border-accent-primary/40 flex items-center justify-center overflow-hidden shadow-[0_0_18px_rgba(56,148,255,0.25)] group-hover:border-accent-primary transition-all p-1">
+          <div className="w-10 h-10 rounded-xl bg-bg-secondary border border-accent-primary/40 flex items-center justify-center overflow-hidden shadow-[0_0_18px_rgba(56,148,255,0.25)] group-hover:border-accent-primary transition-all p-1">
             <img 
               src="/logo.png" 
               alt="Model Router Logo" 
@@ -59,7 +63,7 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab, onlineS
         </div>
 
         {/* Navigation Tabs */}
-        <nav className="hidden lg:flex items-center gap-1.5 p-1 rounded-xl bg-[#0D1117]/80 border border-[#1F2833]/80">
+        <nav className="hidden lg:flex items-center gap-1.5 p-1 rounded-xl bg-bg-secondary/80 border border-border-subtle/80">
           {navItems.map((item) => {
             const Icon = item.icon;
             const isActive = activeTab === item.id;
@@ -70,7 +74,7 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab, onlineS
                 className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-mono font-semibold transition-all duration-150 whitespace-nowrap ${
                   isActive
                     ? 'bg-accent-primary text-bg-primary shadow-[0_0_12px_rgba(56,148,255,0.4)] font-bold'
-                    : 'text-text-muted hover:text-text-primary hover:bg-[#141920]'
+                    : 'text-text-muted hover:text-text-primary hover:bg-bg-card'
                 }`}
               >
                 <Icon className={`w-3.5 h-3.5 ${isActive ? 'text-bg-primary stroke-[2.5]' : 'text-text-muted stroke-[2]'}`} />
@@ -104,7 +108,15 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab, onlineS
 
         {/* Status Indicator */}
         <div className="hidden sm:flex items-center gap-2 shrink-0">
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[#0D1117] border border-[#1F2833] font-mono text-xs shadow-inner">
+          <button 
+            onClick={toggleTheme}
+            className="p-1.5 rounded-xl bg-bg-secondary border border-border-subtle text-text-muted hover:text-text-primary hover:border-border-active transition-all"
+            title="Toggle theme"
+          >
+            {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+          </button>
+          
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-bg-secondary border border-border-subtle font-mono text-xs shadow-inner">
             <span className={`w-2 h-2 rounded-full ${onlineStatus ? 'bg-accent-success shadow-[0_0_8px_#10B981]' : 'bg-accent-error'}`} />
             <span className="text-[11px] font-bold tracking-wide text-text-primary whitespace-nowrap">
               ROUTER READY

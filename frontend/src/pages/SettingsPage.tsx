@@ -1,8 +1,10 @@
-﻿import React, { useEffect, useState } from 'react';
-import { Sliders, Shield, DollarSign, Cpu, CheckCircle } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { Sliders, Shield, DollarSign, Cpu, CheckCircle, Sun, Moon } from 'lucide-react';
 import { fetchApi } from '../lib/api';
+import { useTheme } from '../ThemeContext';
 
 export const SettingsPage: React.FC = () => {
+  const { theme, toggleTheme } = useTheme();
   const [budget, setBudget] = useState<{
     daily_limit: number;
     monthly_limit: number;
@@ -17,14 +19,24 @@ export const SettingsPage: React.FC = () => {
 
   return (
     <div className="space-y-8 max-w-4xl mx-auto pb-16 font-mono">
-      <div className="border-b border-border-subtle pb-4">
-        <h2 className="text-xl font-bold text-text-primary tracking-wide flex items-center gap-2">
-          <Sliders className="w-5 h-5 text-accent-primary" />
-          SYSTEM CONFIGURATION & BUDGET GUARDS
-        </h2>
-        <p className="text-xs text-text-muted mt-1">
-          Configure daily and monthly spend limits, routing threshold interventions, and environment parameters.
-        </p>
+      <div className="border-b border-border-subtle pb-4 flex justify-between items-start">
+        <div>
+          <h2 className="text-xl font-bold text-text-primary tracking-wide flex items-center gap-2">
+            <Sliders className="w-5 h-5 text-accent-primary" />
+            SYSTEM CONFIGURATION & BUDGET GUARDS
+          </h2>
+          <p className="text-xs text-text-muted mt-1">
+            Configure daily and monthly spend limits, routing threshold interventions, and environment parameters.
+          </p>
+        </div>
+        
+        <button 
+          onClick={toggleTheme}
+          className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-bg-secondary border border-border-subtle text-text-muted hover:text-text-primary hover:border-border-active transition-all text-xs font-bold"
+        >
+          {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+          {theme === 'dark' ? 'LIGHT MODE' : 'DARK MODE'}
+        </button>
       </div>
 
       {/* Budget Management */}
