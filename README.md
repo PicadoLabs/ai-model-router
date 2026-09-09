@@ -19,7 +19,7 @@ The platform is designed local-first, allowing full local development and testin
 - **Provider Abstraction**: Decoupled adapters for Mock (simulation), Ollama (local), OpenAI, Anthropic, and Google Gemini.
 - **Resilience and Tiered Fallback**: Automated retry classification for transient errors (timeouts, HTTP 429, 503) and tiered fallback to local/mock alternatives.
 - **Budget Control Guards**: Real-time spend tracking with automated threshold interventions (80% cost optimization, 95% local-only saver, 100% block).
-- **Traffic Control Room UI**: Real-time dark operational interface featuring live topology graphs, playground inspector, SSE live request stream, visual rules builder, and cost savings simulator.
+- **Traffic Control Room UI**: Real-time operational interface with seamless dark/light mode switching, featuring live topology graphs, playground inspector, SSE live request stream, visual rules builder, and cost savings simulator.
 - **Developer CLI**: Terminal diagnostics (`doctor`), routing dry-run (`route`), execution (`run`), model catalog (`models`), and analytics (`analytics`).
 
 ---
