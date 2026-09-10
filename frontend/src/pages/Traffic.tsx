@@ -1,11 +1,12 @@
 ﻿import React, { useEffect, useState } from 'react';
-import { Radio, RefreshCw, Layers, Clock, DollarSign, Cpu } from 'lucide-react';
+import { Download, Radio, RefreshCw } from 'lucide-react';
 import { fetchApi } from '../lib/api';
 import { TrafficItem } from '../types';
 
 export const Traffic: React.FC = () => {
   const [traffic, setTraffic] = useState<TrafficItem[]>([]);
   const [loading, setLoading] = useState(false);
+  const [exportFormat, setExportFormat] = useState<'csv' | 'json'>('csv');
 
   const loadTraffic = async () => {
     setLoading(true);
@@ -17,6 +18,13 @@ export const Traffic: React.FC = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const exportTraffic = () => {
+    window.open(
+      `http://localhost:8000/api/traffic/export?format=${exportFormat}`,
+      '_blank',
+    );
   };
 
   useEffect(() => {
@@ -49,12 +57,30 @@ export const Traffic: React.FC = () => {
           </p>
         </div>
 
-        <button
-          onClick={loadTraffic}
-          className="p-2 rounded-lg border border-border-subtle bg-bg-card text-text-muted hover:text-text-primary font-mono text-xs flex items-center gap-1.5"
-        >
-          <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} /> Refresh
-        </button>
+        <div className="flex items-center gap-2">
+          <select
+            value={exportFormat}
+            onChange={(event) => setExportFormat(event.target.value as 'csv' | 'json')}
+            aria-label="Export format"
+            className="rounded-lg border border-border-subtle bg-bg-card px-2 py-2 text-xs font-mono text-text-muted outline-none"
+          >
+            <option value="csv">CSV</option>
+            <option value="json">JSON</option>
+          </select>
+          <button
+            onClick={exportTraffic}
+            className="p-2 rounded-lg border border-border-subtle bg-bg-card text-text-muted hover:text-text-primary font-mono text-xs flex items-center gap-1.5"
+            title="Export telemetry"
+          >
+            <Download className="w-3.5 h-3.5" /> Export Telemetry
+          </button>
+          <button
+            onClick={loadTraffic}
+            className="p-2 rounded-lg border border-border-subtle bg-bg-card text-text-muted hover:text-text-primary font-mono text-xs flex items-center gap-1.5"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} /> Refresh
+          </button>
+        </div>
       </div>
 
       <div className="rounded-xl border border-border-subtle bg-bg-card p-5 space-y-4 overflow-x-auto">
