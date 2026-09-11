@@ -19,7 +19,7 @@ The platform is designed local-first, allowing full local development and testin
 - **Provider Abstraction**: Decoupled adapters for Mock (simulation), Ollama (local), OpenAI, Anthropic, and Google Gemini.
 - **Resilience and Tiered Fallback**: Automated retry classification for transient errors (timeouts, HTTP 429, 503) and tiered fallback to local/mock alternatives.
 - **Budget Control Guards**: Real-time spend tracking with automated threshold interventions (80% cost optimization, 95% local-only saver, 100% block).
-- **Traffic Control Room UI**: Real-time operational interface with seamless dark/light mode switching, featuring live topology graphs, playground inspector, SSE live request stream, visual rules builder, and cost savings simulator.
+- **Traffic Control Room UI**: Real-time operational interface with seamless dark/light mode switching, featuring live topology graphs, playground inspector, SSE live request stream, telemetry export as CSV/JSON, visual rules builder, and cost savings simulator.
 - **Developer CLI**: Terminal diagnostics (`doctor`), routing dry-run (`route`), execution (`run`), model catalog (`models`), and analytics (`analytics`).
 
 ---
@@ -194,15 +194,34 @@ curl -X POST http://127.0.0.1:8000/api/generate \
 curl http://127.0.0.1:8000/api/models
 ```
 
+### 4. Export Historical Traffic (`GET /api/traffic/export`)
+Export all persisted traffic records for auditing, accounting, or latency analysis:
+
+```bash
+# Export as JSON
+curl -OJ "http://127.0.0.1:8000/api/traffic/export?format=json"
+
+# Export as CSV
+curl -OJ "http://127.0.0.1:8000/api/traffic/export?format=csv"
+```
+
+Each export includes the timestamp, request ID, prompt preview, task type, complexity, selected model, input/output/total tokens, cost saved, and total latency. The `format` query parameter accepts only `csv` or `json`.
+
+The same export is available in the frontend under **Traffic**. Select `CSV` or `JSON` beside **Export Telemetry**, then click the button to download the complete historical traffic dataset.
+
 ---
 
 ## Running Tests
 
-The test suite includes 15 automated unit, integration, and end-to-end tests covering prompt heuristics, candidate pruning, scoring weights, provider execution, error fallbacks, and REST endpoints:
+The test suite includes 18 automated unit, integration, and end-to-end tests covering prompt heuristics, candidate pruning, scoring weights, provider execution, error fallbacks, REST endpoints, and CSV/JSON traffic exports:
 
 ```bash
-# Run backend test suite
+# Run the backend test suite from the repository root
 pytest backend/tests
+
+# Or run it from the backend directory
+cd backend
+python -m pytest tests
 
 # Run frontend production build test
 cd frontend

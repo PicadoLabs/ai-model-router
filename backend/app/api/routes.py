@@ -1,8 +1,11 @@
 ﻿import uuid
 import time
 import asyncio
+import csv
+import io
 from typing import List, Optional, Dict, Any
 from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, desc
@@ -384,6 +387,60 @@ async def list_providers(db: AsyncSession = Depends(get_db)):
 async def get_traffic_feed(limit: int = 50, db: AsyncSession = Depends(get_db)):
     res = await db.execute(select(RequestRecord).order_by(desc(RequestRecord.timestamp)).limit(limit))
     return res.scalars().all()
+
+
+@router.get("/api/traffic/export")
+async def export_traffic(
+    format: str = Query("json", pattern="^(csv|json)$"),
+    db: AsyncSession = Depends(get_db),
+):
+    res = await db.execute(select(RequestRecord).order_by(desc(RequestRecord.timestamp)))
+    records = res.scalars().all()
+    fields = [
+        "timestamp",
+        "request_id",
+        "prompt_preview",
+        "task_type",
+        "complexity",
+        "selected_model",
+        "input_tokens",
+        "output_tokens",
+        "total_tokens",
+        "cost_saved",
+        "total_latency_ms",
+    ]
+    rows = [
+        {
+            "timestamp": record.timestamp.isoformat() if record.timestamp else "",
+            "request_id": record.request_id,
+            "prompt_preview": record.prompt[:200],
+            "task_type": record.task_type,
+            "complexity": record.complexity,
+            "selected_model": record.selected_model,
+            "input_tokens": record.input_tokens,
+            "output_tokens": record.output_tokens,
+            "total_tokens": record.total_tokens,
+            "cost_saved": record.cost_saved,
+            "total_latency_ms": record.total_latency_ms,
+        }
+        for record in records
+    ]
+
+    if format == "json":
+        return JSONResponse(
+            content=rows,
+            headers={"Content-Disposition": "attachment; filename=traffic-export.json"},
+        )
+
+    output = io.StringIO()
+    writer = csv.DictWriter(output, fieldnames=fields)
+    writer.writeheader()
+    writer.writerows(rows)
+    return StreamingResponse(
+        iter([output.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=traffic-export.csv"},
+    )
 
 
 @router.get("/api/decisions/{decision_id_or_request_id}")
