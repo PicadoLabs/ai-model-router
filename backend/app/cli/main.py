@@ -3,6 +3,8 @@ import os
 import asyncio
 import httpx
 import typer
+import json
+from typing import Any, Callable
 from rich.console import Console
 from rich.table import Table
 from rich.panel import Panel
@@ -29,62 +31,90 @@ from sqlalchemy import select
 
 app = typer.Typer(help="Model Router: Intelligent LLM Request Routing Platform")
 console = Console(safe_box=True)
+err_console = Console(stderr=True, safe_box=True)
 settings = get_settings()
 
 
+def _render_output(json_output: bool, data: Any, render_fn: Callable[[], None]) -> None:
+    if json_output:
+        if hasattr(data, "model_dump_json"):
+            print(data.model_dump_json(indent=2))
+        elif isinstance(data, list) and all(hasattr(x, "model_dump") for x in data):
+            print(json.dumps([m.model_dump(mode="json") for m in data], indent=2))
+        else:
+            print(json.dumps(data, indent=2))
+    else:
+        render_fn()
+
+
 @app.command()
-def doctor():
+def doctor(
+    json_output: bool = typer.Option(False, "--json", "-j", help="Output raw JSON instead of formatted tables"),
+):
     """Run environment, connectivity, and dependency health checks."""
-    console.print(Panel.fit("[bold cyan]Model Router Diagnostics (modelrouter doctor)[/bold cyan]"))
-    
-    # 1. Python Check
-    py_ver = f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
-    console.print(f" [green][OK][/green] Python: [bold]{py_ver}[/bold]")
-    
-    # 2. Database Check
+    data = {
+        "python": {"version": f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}", "ok": True},
+        "database": {"ok": False, "message": ""},
+        "ollama": {"ok": False, "models": [], "message": ""},
+        "mock_engine": {"ok": True},
+        "providers": {
+            "openai": {"configured": bool(settings.OPENAI_API_KEY)},
+            "anthropic": {"configured": bool(settings.ANTHROPIC_API_KEY)},
+            "gemini": {"configured": bool(settings.GEMINI_API_KEY)},
+        }
+    }
+
     try:
         asyncio.run(init_db())
-        console.print(" [green][OK][/green] SQLite Database: [bold]Initialized & Ready[/bold]")
+        data["database"]["ok"] = True
+        data["database"]["message"] = "Initialized & Ready"
     except Exception as exc:
-        console.print(f" [red][FAIL][/red] Database Error: {exc}")
+        data["database"]["message"] = str(exc)
 
-    # 3. Ollama Connectivity Check
-    ollama_ok = False
     try:
         r = httpx.get(f"{settings.OLLAMA_BASE_URL}/api/tags", timeout=1.5)
         if r.status_code == 200:
             models = [m.get("name") for m in r.json().get("models", [])]
-            console.print(f" [green][OK][/green] Ollama (Local): [bold]Connected[/bold] ({len(models)} local models found)")
-            ollama_ok = True
+            data["ollama"]["ok"] = True
+            data["ollama"]["models"] = models
     except Exception:
         pass
-    if not ollama_ok:
-        console.print(f" [yellow][!][/yellow] Ollama (Local): [dim]Not running on {settings.OLLAMA_BASE_URL} (Optional, local fallback available)[/dim]")
+    
+    if not data["ollama"]["ok"]:
+        data["ollama"]["message"] = f"Not running on {settings.OLLAMA_BASE_URL}"
 
-    # 4. Mock Engine
-    console.print(" [green][OK][/green] Mock Engine: [bold]Ready (Zero API keys required)[/bold]")
+    def _render() -> None:
+        console.print(Panel.fit("[bold cyan]Model Router Diagnostics (modelrouter doctor)[/bold cyan]"))
+        
+        console.print(f" [green][OK][/green] Python: [bold]{data['python']['version']}[/bold]")
+        
+        if data["database"]["ok"]:
+            console.print(" [green][OK][/green] SQLite Database: [bold]Initialized & Ready[/bold]")
+        else:
+            console.print(f" [red][FAIL][/red] Database Error: {data['database']['message']}")
+            
+        if data["ollama"]["ok"]:
+            console.print(f" [green][OK][/green] Ollama (Local): [bold]Connected[/bold] ({len(data['ollama']['models'])} local models found)")
+        else:
+            console.print(f" [yellow][!][/yellow] Ollama (Local): [dim]Not running on {settings.OLLAMA_BASE_URL} (Optional, local fallback available)[/dim]")
+            
+        console.print(" [green][OK][/green] Mock Engine: [bold]Ready (Zero API keys required)[/bold]")
+        
+        for prov, name in [("openai", "OpenAI"), ("anthropic", "Anthropic"), ("gemini", "Gemini")]:
+            if data["providers"][prov]["configured"]:
+                console.print(f" [green][OK][/green] {name} Provider: [bold]API Key Configured in .env[/bold]")
+            else:
+                console.print(f" [yellow][!][/yellow] {name} Provider: [dim]Not configured (Optional)[/dim]")
+                
+        console.print("\n[bold green]Ready for local-first intelligent routing![/bold green]\n")
 
-    # 5. External Providers
-    if settings.OPENAI_API_KEY:
-        console.print(" [green][OK][/green] OpenAI Provider: [bold]API Key Configured in .env[/bold]")
-    else:
-        console.print(" [yellow][!][/yellow] OpenAI Provider: [dim]Not configured (Optional)[/dim]")
-
-    if settings.ANTHROPIC_API_KEY:
-        console.print(" [green][OK][/green] Anthropic Provider: [bold]API Key Configured in .env[/bold]")
-    else:
-        console.print(" [yellow][!][/yellow] Anthropic Provider: [dim]Not configured (Optional)[/dim]")
-
-    if settings.GEMINI_API_KEY:
-        console.print(" [green][OK][/green] Gemini Provider: [bold]API Key Configured in .env[/bold]")
-    else:
-        console.print(" [yellow][!][/yellow] Gemini Provider: [dim]Not configured (Optional)[/dim]")
-
-    console.print("\n[bold green]Ready for local-first intelligent routing![/bold green]\n")
+    _render_output(json_output, data, _render)
 
 
 @app.command()
-def models():
+def models(
+    json_output: bool = typer.Option(False, "--json", "-j", help="Output raw JSON instead of formatted tables"),
+):
     """List all registered candidate models and their capability scores."""
     async def _list():
         await init_db()
@@ -92,27 +122,31 @@ def models():
             res = await db.execute(select(ModelRecord).order_by(ModelRecord.tier, ModelRecord.name))
             records = res.scalars().all()
             
-            table = Table(title="Model Router Registry", border_style="bright_blue")
-            table.add_column("Model ID", style="cyan", no_wrap=True)
-            table.add_column("Tier", style="magenta")
-            table.add_column("Provider", style="green")
-            table.add_column("Context", style="yellow")
-            table.add_column("Quality", style="blue")
-            table.add_column("Speed", style="cyan")
-            table.add_column("Cost / 1K In/Out", style="white")
+            def _render() -> None:
+                table = Table(title="Model Router Registry", border_style="bright_blue")
+                table.add_column("Model ID", style="cyan", no_wrap=True)
+                table.add_column("Tier", style="magenta")
+                table.add_column("Provider", style="green")
+                table.add_column("Context", style="yellow")
+                table.add_column("Quality", style="blue")
+                table.add_column("Speed", style="cyan")
+                table.add_column("Cost / 1K In/Out", style="white")
 
-            for m in records:
-                cost_str = f"${m.cost_per_input_token*1000:.4f} / ${m.cost_per_output_token*1000:.4f}" if m.cost_per_input_token > 0 else "Free ($0)"
-                table.add_row(
-                    m.id,
-                    m.tier,
-                    m.provider,
-                    f"{m.context_window:,}",
-                    f"{m.quality_score*100:.0f}%",
-                    f"{m.speed_score*100:.0f}%",
-                    cost_str,
-                )
-            console.print(table)
+                for m in records:
+                    cost_str = f"${m.cost_per_input_token*1000:.4f} / ${m.cost_per_output_token*1000:.4f}" if m.cost_per_input_token > 0 else "Free ($0)"
+                    table.add_row(
+                        m.id,
+                        m.tier,
+                        m.provider,
+                        f"{m.context_window:,}",
+                        f"{m.quality_score*100:.0f}%",
+                        f"{m.speed_score*100:.0f}%",
+                        cost_str,
+                    )
+                console.print(table)
+            
+            data = [db_model_to_meta(m) for m in records]
+            _render_output(json_output, data, _render)
 
     asyncio.run(_list())
 
@@ -121,6 +155,7 @@ def models():
 def route(
     prompt: str = typer.Argument(..., help="Prompt text to route"),
     policy: str = typer.Option("balanced", "--policy", "-p", help="Routing policy to use"),
+    json_output: bool = typer.Option(False, "--json", "-j", help="Output raw JSON instead of formatted tables"),
 ):
     """Analyze prompt and explain why the optimal model was selected (Dry Run)."""
     async def _route():
@@ -148,24 +183,27 @@ def route(
                 policy_name=policy,
             )
 
-            console.print(Panel.fit(
-                f"[bold white]Prompt:[/bold white] \"{prompt}\"\n"
-                f"[bold cyan]Task Type:[/bold cyan] {analysis.task_type.value} | [bold cyan]Complexity:[/bold cyan] {analysis.complexity_label.value} ({analysis.complexity:.2f})\n"
-                f"[bold green]Selected Model:[/bold green] [bold yellow]{decision.selected_model_name}[/bold yellow] ({decision.selected_model})\n"
-                f"[bold magenta]Confidence:[/bold magenta] {decision.confidence * 100:.0f}%\n"
-                f"[bold blue]Estimated Latency:[/bold blue] {decision.estimated_latency_ms:.0f}ms | [bold blue]Estimated Cost:[/bold blue] ${decision.estimated_cost_usd:.6f}",
-                title="ROUTING DECISION",
-                border_style="bright_blue",
-            ))
+            def _render() -> None:
+                console.print(Panel.fit(
+                    f"[bold white]Prompt:[/bold white] \"{prompt}\"\n"
+                    f"[bold cyan]Task Type:[/bold cyan] {analysis.task_type.value} | [bold cyan]Complexity:[/bold cyan] {analysis.complexity_label.value} ({analysis.complexity:.2f})\n"
+                    f"[bold green]Selected Model:[/bold green] [bold yellow]{decision.selected_model_name}[/bold yellow] ({decision.selected_model})\n"
+                    f"[bold magenta]Confidence:[/bold magenta] {decision.confidence * 100:.0f}%\n"
+                    f"[bold blue]Estimated Latency:[/bold blue] {decision.estimated_latency_ms:.0f}ms | [bold blue]Estimated Cost:[/bold blue] ${decision.estimated_cost_usd:.6f}",
+                    title="ROUTING DECISION",
+                    border_style="bright_blue",
+                ))
 
-            console.print("[bold cyan]Why this model?[/bold cyan]")
-            for r in decision.reasons:
-                console.print(f"  [green]+[/green] {r}")
+                console.print("[bold cyan]Why this model?[/bold cyan]")
+                for r in decision.reasons:
+                    console.print(f"  [green]+[/green] {r}")
 
-            if decision.rejected_candidates:
-                console.print("\n[bold red]Rejected Candidates:[/bold red]")
-                for cid, reason in decision.rejected_candidates.items():
-                    console.print(f"  [dim]- {cid}: {reason}[/dim]")
+                if decision.rejected_candidates:
+                    console.print("\n[bold red]Rejected Candidates:[/bold red]")
+                    for cid, reason in decision.rejected_candidates.items():
+                        console.print(f"  [dim]- {cid}: {reason}[/dim]")
+            
+            _render_output(json_output, decision, _render)
 
     asyncio.run(_route())
 
@@ -174,6 +212,7 @@ def route(
 def run(
     prompt: str = typer.Argument(..., help="Prompt to route and execute"),
     policy: str = typer.Option("balanced", "--policy", "-p", help="Routing policy to use"),
+    json_output: bool = typer.Option(False, "--json", "-j", help="Output raw JSON instead of formatted tables"),
 ):
     """Route request and execute inference through the chosen provider."""
     async def _run():
@@ -191,7 +230,11 @@ def run(
                 policy_name=policy,
             )
 
-            console.print(f"[bold cyan]Routing to:[/bold cyan] {decision.selected_model} via provider: {decision.provider}...")
+            routing_msg = f"[bold cyan]Routing to:[/bold cyan] {decision.selected_model} via provider: {decision.provider}..."
+            if json_output:
+                err_console.print(routing_msg)
+            else:
+                console.print(routing_msg)
             
             resp, fallback_used, orig_m, fb_reason = await execute_with_fallback(
                 prompt=prompt,
@@ -200,12 +243,32 @@ def run(
                 all_models=models,
             )
 
-            console.print(Panel(
-                resp.content,
-                title=f"RESPONSE from {resp.model} ({'FALLBACK: ' + orig_m if fallback_used else 'PRIMARY'})",
-                subtitle=f"Latency: {resp.provider_latency_ms:.0f}ms | Tokens: {resp.total_tokens}",
-                border_style="green" if not fallback_used else "yellow",
-            ))
+            def _render() -> None:
+                console.print(Panel(
+                    resp.content,
+                    title=f"RESPONSE from {resp.model} ({'FALLBACK: ' + orig_m if fallback_used else 'PRIMARY'})",
+                    subtitle=f"Latency: {resp.provider_latency_ms:.0f}ms | Tokens: {resp.total_tokens}",
+                    border_style="green" if not fallback_used else "yellow",
+                ))
+            
+            data = {
+                "decision": json.loads(decision.model_dump_json()) if hasattr(decision, "model_dump_json") else (decision.model_dump() if hasattr(decision, "model_dump") else decision),
+                "response": json.loads(resp.model_dump_json()) if hasattr(resp, "model_dump_json") else {
+                    "content": getattr(resp, "content", ""),
+                    "model": getattr(resp, "model", ""),
+                    "provider_latency_ms": getattr(resp, "provider_latency_ms", 0),
+                    "total_tokens": getattr(resp, "total_tokens", 0),
+                },
+                "fallback": {
+                    "used": fallback_used,
+                    "original_model": orig_m,
+                    "reason": fb_reason,
+                }
+            }
+            if hasattr(resp, "model_dump") and not hasattr(resp, "model_dump_json"):
+                data["response"] = resp.model_dump()
+                
+            _render_output(json_output, data, _render)
 
     asyncio.run(_run())
 
@@ -245,22 +308,28 @@ def traffic(limit: int = 10):
 
 
 @app.command()
-def analytics():
+def analytics(
+    json_output: bool = typer.Option(False, "--json", "-j", help="Output raw JSON instead of formatted tables"),
+):
     """Display system-wide routing performance and cost savings analytics."""
     async def _analytics():
         await init_db()
         from app.analytics.service import get_system_analytics
         async with AsyncSessionLocal() as db:
             data = await get_system_analytics(db)
-            console.print(Panel.fit(
-                f"[bold cyan]Total Routed Requests:[/bold cyan] {data['total_requests']}\n"
-                f"[bold green]Average Latency:[/bold green] {data['avg_latency_ms']}ms (Routing overhead: {data['avg_routing_latency_ms']}ms)\n"
-                f"[bold yellow]Total Cost:[/bold yellow] ${data['total_cost_usd']:.6f}\n"
-                f"[bold magenta]Cost Saved vs Baseline:[/bold magenta] ${data['savings']['cost_saved_usd']:.6f} ({data['savings']['savings_percentage']}%)\n"
-                f"[bold blue]Fallback Rate:[/bold blue] {data['fallback_rate_percent']}%\n",
-                title="MODEL ROUTER ANALYTICS OVERVIEW",
-                border_style="bright_blue",
-            ))
+            
+            def _render() -> None:
+                console.print(Panel.fit(
+                    f"[bold cyan]Total Routed Requests:[/bold cyan] {data['total_requests']}\n"
+                    f"[bold green]Average Latency:[/bold green] {data['avg_latency_ms']}ms (Routing overhead: {data['avg_routing_latency_ms']}ms)\n"
+                    f"[bold yellow]Total Cost:[/bold yellow] ${data['total_cost_usd']:.6f}\n"
+                    f"[bold magenta]Cost Saved vs Baseline:[/bold magenta] ${data['savings']['cost_saved_usd']:.6f} ({data['savings']['savings_percentage']}%)\n"
+                    f"[bold blue]Fallback Rate:[/bold blue] {data['fallback_rate_percent']}%\n",
+                    title="MODEL ROUTER ANALYTICS OVERVIEW",
+                    border_style="bright_blue",
+                ))
+                
+            _render_output(json_output, data, _render)
 
     asyncio.run(_analytics())
 
