@@ -1,5 +1,9 @@
 # Model Router
 
+[![PyPI - Version](https://img.shields.io/pypi/v/model-router-cli?logo=pypi&logoColor=white&color=blue)](https://pypi.org/project/model-router-cli/)
+[![PyPI - Python Version](https://img.shields.io/pypi/pyversions/model-router-cli?logo=python&logoColor=white)](https://pypi.org/project/model-router-cli/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 Intelligent, explainable, cost- and latency-aware LLM request routing platform and AI Traffic Control Room.
 
 ---
@@ -66,9 +70,32 @@ The platform is designed local-first, allowing full local development and testin
 - Node.js 18+ and npm
 - (Optional) [Ollama](https://ollama.com/) for local model inference
 
+## 📦 Quick Installation (via PyPI)
+
+Install Model Router and its embedded **AI Traffic Control Room** dashboard directly from PyPI:
+
+```bash
+pip install model-router-cli
+```
+
+### Quick Commands:
+```bash
+# Run system diagnostics & environment checks
+modelrouter doctor
+
+# Launch the Traffic Control Room Dashboard & API Gateway in your browser
+modelrouter ui --open-browser
+
+# Route a prompt and inspect the explainability decision (Dry Run)
+modelrouter route "Write an optimized async task worker in Python"
+
+# Route and execute inference through the optimal provider
+modelrouter run "Explain the difference between zero-shot and few-shot prompting"
+```
+
 ---
 
-## Installation & Setup
+## Installation & Setup (from Source)
 
 ### 1. Clone the Repository
 ```bash
@@ -152,23 +179,29 @@ npm run dev
 
 ## CLI Usage
 
-The built-in Typer CLI provides terminal commands for inspection, diagnostics, and testing:
+The built-in Typer CLI provides terminal commands for inspection, diagnostics, and testing (use `modelrouter` if installed via pip, or `python backend/app/cli/main.py` from source):
 
 ```bash
+# Launch the AI Traffic Control Room Web UI and API Gateway
+modelrouter ui --open-browser
+
 # Run system diagnostics & provider health checks
-python backend/app/cli/main.py doctor
+modelrouter doctor
 
 # Inspect routing decision for a prompt without executing (Dry Run)
-python backend/app/cli/main.py route "Write a Python function to parse JSON"
+modelrouter route "Write a Python function to parse JSON"
 
 # Route and execute a query through the selected model
-python backend/app/cli/main.py run "Debug this distributed async deadlock in worker pool"
+modelrouter run "Debug this distributed async deadlock in worker pool"
 
 # List all registered models in the catalog
-python backend/app/cli/main.py models
+modelrouter models
+
+# View recent routed traffic logs
+modelrouter traffic
 
 # View system-wide routing performance and cost savings analytics
-python backend/app/cli/main.py analytics
+modelrouter analytics
 ```
 
 ---
@@ -301,6 +334,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 Maintained and architected by **PicadoLabs**.
 
+- **Maintainer**: [@Kaap10](https://github.com/Kaap10)
 - **Organization**: [PicadoLabs](https://github.com/PicadoLabs)
 - **Website**: [https://picadolabs.me](https://picadolabs.me)
 - **Contact**: [picadolabs@gmail.com](mailto:picadolabs@gmail.com)

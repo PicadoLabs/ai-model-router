@@ -1,4 +1,4 @@
-﻿import sys
+import sys
 import os
 import asyncio
 import httpx
@@ -265,5 +265,23 @@ def analytics():
     asyncio.run(_analytics())
 
 
+@app.command()
+def ui(
+    host: str = typer.Option("127.0.0.1", "--host", "-h", help="Host address to bind the web server"),
+    port: int = typer.Option(8000, "--port", "-p", help="Port to run the Model Router Control Room on"),
+):
+    """Launch the Model Router API Gateway & AI Traffic Control Room UI."""
+    import uvicorn
+    console.print(Panel.fit(
+        f"[bold cyan]Starting Model Router AI Traffic Control Room[/bold cyan]\n"
+        f"Web Dashboard: [bold green]http://{host}:{port}[/bold green]\n"
+        f"API Documentation: [bold green]http://{host}:{port}/docs[/bold green]",
+        title="MODEL ROUTER UI LAUNCHER",
+        border_style="cyan"
+    ))
+    uvicorn.run("main:app", host=host, port=port, reload=False, app_dir=os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
+
+
 if __name__ == "__main__":
     app()
+

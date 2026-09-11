@@ -21,11 +21,14 @@ model_router.db-journal
 .pytest_cache/
 .coverage
 htmlcov/
+build/
+*.egg-info/
 
 # Node / Frontend
 node_modules/
 dist/
 .dist/
+backend/app/static/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*

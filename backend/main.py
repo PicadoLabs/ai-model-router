@@ -1,4 +1,4 @@
-﻿import asyncio
+import asyncio
 import json
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
@@ -80,15 +80,39 @@ async def stream_live_traffic():
     return EventSourceResponse(event_generator())
 
 
-@app.get("/")
-async def root():
-    return {
-        "message": "Model Router AI Control Room Backend is active.",
-        "docs": "/docs",
-        "health": "/api/health",
-    }
+# Serve Bundled Frontend (SPA) if static directory exists
+import os
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
+from fastapi import HTTPException
+
+STATIC_DIR = os.path.join(os.path.dirname(__file__), "app", "static")
+
+if os.path.exists(STATIC_DIR):
+    assets_dir = os.path.join(STATIC_DIR, "assets")
+    if os.path.exists(assets_dir):
+        app.mount("/assets", StaticFiles(directory=assets_dir), name="assets")
+
+    @app.get("/{full_path:path}")
+    async def serve_spa(full_path: str):
+        if full_path.startswith("api/") or full_path.startswith("docs") or full_path.startswith("openapi.json"):
+            raise HTTPException(status_code=404, detail="Not Found")
+        
+        target_file = os.path.join(STATIC_DIR, full_path)
+        if os.path.exists(target_file) and os.path.isfile(target_file):
+            return FileResponse(target_file)
+        return FileResponse(os.path.join(STATIC_DIR, "index.html"))
+else:
+    @app.get("/")
+    async def root():
+        return {
+            "message": "Model Router AI Control Room Backend is active.",
+            "docs": "/docs",
+            "health": "/api/health",
+        }
 
 
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("main:app", host=settings.HOST, port=settings.PORT, reload=settings.DEBUG)
+
