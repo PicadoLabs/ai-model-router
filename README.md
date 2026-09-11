@@ -179,7 +179,8 @@ npm run dev
 
 ## CLI Usage
 
-The built-in Typer CLI provides terminal commands for inspection, diagnostics, and testing (use `modelrouter` if installed via pip, or `python backend/app/cli/main.py` from source):
+The built-in Typer CLI provides terminal commands for inspection, diagnostics, and testing (use `modelrouter` if installed via pip, or `python backend/app/cli/main.py` from source).
+You can append `--json` or `-j` to most commands to output raw, pipeable JSON instead of Rich formatted tables:
 
 ```bash
 # Launch the AI Traffic Control Room Web UI and API Gateway
