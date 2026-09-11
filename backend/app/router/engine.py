@@ -64,7 +64,7 @@ def route_request(
 ) -> RoutingDecision:
     req_id = request_id or str(uuid.uuid4())
     decision_id = f"dec_{uuid.uuid4().hex[:12]}"
-    now_iso = datetime.datetime.utcnow().isoformat()
+    now_iso = datetime.datetime.now(datetime.UTC).isoformat()
 
     # 1. Rule evaluation
     rule_action, rule_target, rule_name = None, None, None

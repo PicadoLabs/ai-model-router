@@ -27,7 +27,7 @@ def log_router_event(
     payload = {
         "event": event_name,
         "request_id": request_id,
-        "timestamp": datetime.datetime.utcnow().isoformat(),
+        "timestamp": datetime.datetime.now(datetime.UTC).isoformat(),
         "model": model,
         "provider": provider,
         "duration_ms": duration_ms,
