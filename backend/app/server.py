@@ -1,17 +1,18 @@
 import asyncio
 import json
+import os
 from contextlib import asynccontextmanager
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from sse_starlette.sse import EventSourceResponse
-import uvicorn
-from app.server import app, settings
+from sqlalchemy import select, desc
 
 from app.config.settings import get_settings
 from app.storage.database import init_db, AsyncSessionLocal
 from app.storage.models import RequestRecord
 from app.api.routes import router as api_router
-from sqlalchemy import select, desc
 
 settings = get_settings()
 
@@ -83,12 +84,7 @@ async def stream_live_traffic():
 
 
 # Serve Bundled Frontend (SPA) if static directory exists
-import os
-from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
-from fastapi import HTTPException
-
-STATIC_DIR = os.path.join(os.path.dirname(__file__), "app", "static")
+STATIC_DIR = os.path.join(os.path.dirname(__file__), "static")
 
 if os.path.exists(STATIC_DIR):
     assets_dir = os.path.join(STATIC_DIR, "assets")
@@ -113,9 +109,3 @@ else:
             "health": "/api/health",
         }
 
-
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run("main:app", host=settings.HOST, port=settings.PORT, reload=settings.DEBUG)
-
-    uvicorn.run("app.server:app", host=settings.HOST, port=settings.PORT, reload=settings.DEBUG)

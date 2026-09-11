@@ -269,17 +269,34 @@ def analytics():
 def ui(
     host: str = typer.Option("127.0.0.1", "--host", "-h", help="Host address to bind the web server"),
     port: int = typer.Option(8000, "--port", "-p", help="Port to run the Model Router Control Room on"),
+    open_browser: bool = typer.Option(False, "--open-browser", help="Automatically open dashboard in default web browser"),
 ):
     """Launch the Model Router API Gateway & AI Traffic Control Room UI."""
     import uvicorn
-    console.print(Panel.fit(
+    import webbrowser
+    import threading
+    import time
+
+    url = f"http://{host}:{port}"
+    message = (
         f"[bold cyan]Starting Model Router AI Traffic Control Room[/bold cyan]\n"
-        f"Web Dashboard: [bold green]http://{host}:{port}[/bold green]\n"
-        f"API Documentation: [bold green]http://{host}:{port}/docs[/bold green]",
+        f"Web Dashboard: [bold green]{url}[/bold green]\n"
+        f"API Documentation: [bold green]{url}/docs[/bold green]"
+    )
+    console.print(Panel.fit(
+        message,
         title="MODEL ROUTER UI LAUNCHER",
         border_style="cyan"
     ))
-    uvicorn.run("main:app", host=host, port=port, reload=False, app_dir=os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
+
+    if open_browser:
+        def _open():
+            time.sleep(1.2)
+            webbrowser.open(url)
+        threading.Thread(target=_open, daemon=True).start()
+
+    from app.server import app as fastapi_app
+    uvicorn.run(fastapi_app, host=host, port=port, log_level="info")
 
 
 if __name__ == "__main__":
