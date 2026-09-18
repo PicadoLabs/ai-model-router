@@ -1,8 +1,10 @@
-﻿from typing import Dict, Optional
+from typing import Dict, Optional
 from app.providers.base import ModelProvider
 from app.providers.mock_provider import MockProvider
 from app.providers.ollama_provider import OllamaProvider
 from app.providers.external_providers import OpenAIProvider, AnthropicProvider, GeminiProvider
+from app.providers.deepseek_provider import DeepSeekProvider
+from app.providers.together_provider import TogetherProvider
 from app.config.settings import get_settings
 
 settings = get_settings()
@@ -20,6 +22,8 @@ class ProviderRegistry:
             "openai": OpenAIProvider(api_key=settings.OPENAI_API_KEY),
             "anthropic": AnthropicProvider(api_key=settings.ANTHROPIC_API_KEY),
             "gemini": GeminiProvider(api_key=settings.GEMINI_API_KEY),
+            "deepseek": DeepSeekProvider(api_key=settings.DEEPSEEK_API_KEY),
+            "together": TogetherProvider(api_key=settings.TOGETHER_API_KEY),
         }
 
     def get_provider(self, provider_id: str) -> Optional[ModelProvider]:
