@@ -40,6 +40,7 @@ export function App() {
           </div>
           <div className="text-text-dim text-[11px]">
             Local-First • Provider-Agnostic • Open-Source MIT
+            Local-First • Provider-Agnostic • Open-Source Apache 2.0
           </div>
         </div>
       </footer>
