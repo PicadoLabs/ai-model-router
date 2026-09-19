@@ -92,6 +92,13 @@ All contributors and maintainers are expected to adhere to the [Code of Conduct]
 - Write unit/integration tests in `backend/tests/` for new endpoints or routing logic.
 - Keep external provider credentials strictly inside `.env` configuration.
 
+### Adding a New Model Provider Adapter
+1. Implement the `ModelProvider` base class interface (`backend/app/providers/base.py`) returning `ProviderResponse`.
+2. Add optional API key settings in `backend/app/config/settings.py` and document them in `.env.example`.
+3. Register the new provider instance with a lowercase identifier in `ProviderRegistry` (`backend/app/providers/registry.py`).
+4. Seed default model records with accurate context windows, capabilities, scores, and pricing in `backend/app/storage/database.py`.
+5. Add unit tests in `backend/tests/test_providers.py` (registry lookup, unconfigured key handling, and mock generation).
+
 ### TypeScript / React (Frontend)
 - Adhere to functional React component patterns with typed props.
 - Use Tailwind CSS utility classes and design tokens consistent with the dark control room theme.
@@ -101,7 +108,7 @@ All contributors and maintainers are expected to adhere to the [Code of Conduct]
 
 ## Pull Request Process
 
-1. Ensure all existing 15 pytest tests pass.
+1. Ensure all backend tests pass (`pytest backend/tests`).
 2. Add tests for any new features or bug fixes.
 3. Update relevant documentation in `README.md` if parameters, routes, or workflows changed.
 4. Open a Pull Request on GitHub with a clear summary and motivation following the PR template.
@@ -112,3 +119,4 @@ All contributors and maintainers are expected to adhere to the [Code of Conduct]
 ## Questions & Support
 
 If you have questions, open a GitHub Discussion or reach out to the maintainers at [picadolabs@gmail.com](mailto:picadolabs@gmail.com).
+
