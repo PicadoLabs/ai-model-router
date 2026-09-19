@@ -2,7 +2,6 @@
 
 [![PyPI - Version](https://img.shields.io/pypi/v/model-router-cli?logo=pypi&logoColor=white&color=blue)](https://pypi.org/project/model-router-cli/)
 [![PyPI - Python Version](https://img.shields.io/pypi/pyversions/model-router-cli?logo=python&logoColor=white)](https://pypi.org/project/model-router-cli/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![Downloads](https://static.pepy.tech/badge/model-router-cli)](https://pepy.tech/project/model-router-cli)
 
@@ -305,7 +304,6 @@ AI-Model-Router/
 ├── .gitignore               # Git exclusions
 ├── CODE_OF_CONDUCT.md       # Contributor Covenant Code of Conduct
 ├── CONTRIBUTING.md          # Contribution guidelines and workflow
-├── LICENSE                  # MIT License
 ├── LICENSE                  # Apache 2.0 License
 ├── milestone.md             # Development milestone roadmap & issue tracker
 ├── README.md                # Project documentation
@@ -331,7 +329,6 @@ Security and privacy are core to Model Router. For vulnerability reporting proce
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENSE) file for details.
 
 ---
