@@ -1,4 +1,4 @@
-﻿from typing import AsyncGenerator
+from typing import AsyncGenerator
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
 from app.config.settings import get_settings
 from app.storage.models import (
@@ -248,6 +248,57 @@ async def init_db():
                     reliability_score=0.99,
                     cost_per_input_token=0.000000075,
                     cost_per_output_token=0.00000030,
+                ),
+                ModelRecord(
+                    id="deepseek-chat",
+                    name="DeepSeek V3 Chat",
+                    provider="deepseek",
+                    type="CLOUD",
+                    tier="BALANCED",
+                    context_window=65536,
+                    supports_coding=True,
+                    supports_reasoning=True,
+                    supports_vision=False,
+                    supports_tools=True,
+                    quality_score=0.92,
+                    speed_score=0.88,
+                    reliability_score=0.98,
+                    cost_per_input_token=0.00000014,
+                    cost_per_output_token=0.00000028,
+                ),
+                ModelRecord(
+                    id="deepseek-reasoner",
+                    name="DeepSeek R1 Reasoner",
+                    provider="deepseek",
+                    type="CLOUD",
+                    tier="POWER",
+                    context_window=65536,
+                    supports_coding=True,
+                    supports_reasoning=True,
+                    supports_vision=False,
+                    supports_tools=False,
+                    quality_score=0.97,
+                    speed_score=0.65,
+                    reliability_score=0.98,
+                    cost_per_input_token=0.00000055,
+                    cost_per_output_token=0.00000219,
+                ),
+                ModelRecord(
+                    id="together-llama-3.3-70b",
+                    name="Together Llama 3.3 70B",
+                    provider="together",
+                    type="CLOUD",
+                    tier="BALANCED",
+                    context_window=131072,
+                    supports_coding=True,
+                    supports_reasoning=True,
+                    supports_vision=False,
+                    supports_tools=True,
+                    quality_score=0.91,
+                    speed_score=0.89,
+                    reliability_score=0.98,
+                    cost_per_input_token=0.00000088,
+                    cost_per_output_token=0.00000088,
                 ),
             ]
             session.add_all(default_models)
