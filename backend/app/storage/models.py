@@ -1,4 +1,4 @@
-﻿import datetime
+import datetime
 from sqlalchemy import (
     Column,
     String,
@@ -40,8 +40,8 @@ class ModelRecord(Base):
     is_active = Column(Boolean, default=True)
     tier = Column(String(50), default="BALANCED")  # FAST, BALANCED, POWER
     
-    created_at = Column(DateTime, default=datetime.datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc))
+    updated_at = Column(DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc), onupdate=lambda: datetime.datetime.now(datetime.timezone.utc))
 
 
 class ProviderRecord(Base):
@@ -52,7 +52,7 @@ class ProviderRecord(Base):
     status = Column(String(50), default="READY")  # READY, CONNECTED, NOT_CONFIGURED, ERROR
     is_enabled = Column(Boolean, default=True)
     base_url = Column(String(500), nullable=True)
-    updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+    updated_at = Column(DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc), onupdate=lambda: datetime.datetime.now(datetime.timezone.utc))
 
 
 class RoutingPolicyRecord(Base):
@@ -85,14 +85,14 @@ class RoutingRuleRecord(Base):
     action_type = Column(String(50), nullable=False)  # ROUTE_TO, PREFER, FORCE_TIER, SET_POLICY
     action_target = Column(String(100), nullable=False)
     
-    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc))
 
 
 class RequestRecord(Base):
     __tablename__ = "requests"
 
     request_id = Column(String(100), primary_key=True)
-    timestamp = Column(DateTime, default=datetime.datetime.utcnow)
+    timestamp = Column(DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc))
     prompt = Column(Text, nullable=False)
     task_type = Column(String(50), nullable=False)
     complexity = Column(Float, default=0.5)
@@ -127,7 +127,7 @@ class RoutingDecisionRecord(Base):
 
     decision_id = Column(String(100), primary_key=True)
     request_id = Column(String(100), ForeignKey("requests.request_id"), nullable=False)
-    timestamp = Column(DateTime, default=datetime.datetime.utcnow)
+    timestamp = Column(DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc))
     
     selected_model = Column(String(100), nullable=False)
     confidence = Column(Float, default=0.9)
@@ -142,7 +142,7 @@ class ResponseRecord(Base):
 
     response_id = Column(String(100), primary_key=True)
     request_id = Column(String(100), ForeignKey("requests.request_id"), nullable=False)
-    timestamp = Column(DateTime, default=datetime.datetime.utcnow)
+    timestamp = Column(DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc))
     model_id = Column(String(100), nullable=False)
     provider = Column(String(50), nullable=False)
     content = Column(Text, nullable=False)
@@ -159,7 +159,7 @@ class FeedbackRecord(Base):
     task_type = Column(String(50), nullable=False)
     rating = Column(Integer, nullable=False)  # 1 for thumbs up, -1 for thumbs down
     comment = Column(Text, nullable=True)
-    timestamp = Column(DateTime, default=datetime.datetime.utcnow)
+    timestamp = Column(DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc))
 
 
 class BudgetRecord(Base):
@@ -172,7 +172,7 @@ class BudgetRecord(Base):
     current_daily_spend = Column(Float, default=0.0)
     current_monthly_spend = Column(Float, default=0.0)
     intervention_mode = Column(String(50), default="OPTIMIZE")  # NORMAL, OPTIMIZE_80, CHEAP_95, BLOCK_100
-    updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+    updated_at = Column(DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc), onupdate=lambda: datetime.datetime.now(datetime.timezone.utc))
 
 
 class ExperimentRecord(Base):
@@ -185,7 +185,7 @@ class ExperimentRecord(Base):
     policy_b = Column(String(50), nullable=False)
     status = Column(String(50), default="ACTIVE")  # ACTIVE, PAUSED, COMPLETED
     sample_count = Column(Integer, default=0)
-    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc))
 
 
 class ExperimentRunRecord(Base):
@@ -199,4 +199,4 @@ class ExperimentRunRecord(Base):
     cost = Column(Float, default=0.0)
     latency_ms = Column(Float, default=0.0)
     feedback_rating = Column(Integer, nullable=True)
-    timestamp = Column(DateTime, default=datetime.datetime.utcnow)
+    timestamp = Column(DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc))
