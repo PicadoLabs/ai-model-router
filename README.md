@@ -9,6 +9,16 @@ Intelligent, explainable, cost- and latency-aware LLM request routing platform a
 
 ---
 
+
+## The Real-World Problem
+Companies building AI applications face ballooning API costs, rate limits, and latency spikes. They want to use large models (like GPT-4 or Claude 3.5 Sonnet) for complex reasoning, but cheaper/faster models (like Llama 3 or Haiku) for simple tasks. Manually writing logic to route these requests is brittle and hard to maintain.
+
+## Why it's Unique (The "Edge")
+- **The "Traffic Control Room":** A stunning frontend UI that makes routing decisions transparent and explainable. You don't just route; you see *why* a request went to a specific model.
+- **100% Local & Self-Hosted:** No data leaves the user's infrastructure.
+- **A/B Policy Experimentation:** Built-in tools to test different routing policies (e.g., "lowest cost" vs "balanced") and see projected savings.
+- **Dual-Mode Analyzer:** Uses both fast heuristics (regex/length) and LLM-based complexity scoring to route requests efficiently.
+
 ## Overview
 
 Model Router intercepts incoming AI requests, analyzes their task type and continuous complexity, evaluates available models against a configurable multi-criteria scoring objective, selects the optimal candidate, and dispatches the request with automatic fallback handling and budget guards.

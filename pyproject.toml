@@ -12,7 +12,7 @@ authors = [
     { name = "PicadoLabs", email = "picadolabs@gmail.com" }
 ]
 maintainers = [
-    { name = "Kaap10", email = "picadolabs@gmail.com" }
+    { name = "PicadoLabs", email = "picadolabs@gmail.com" }
 ]
 license = { text = "Apache-2.0" }
 keywords = ["llm", "ai", "router", "fastapi", "ollama", "openai", "cost-optimization"]

@@ -1,24 +1,15 @@
 ## Summary
-Provide a brief summary of the changes introduced in this pull request.
+A concise description of the problem being solved or the feature being added.
 
-## Motivation
-Explain why this change is necessary and what issue it resolves.
+## Type of Change
+- [ ] Bug fix (non-breaking change fixing an issue)
+- [ ] New feature (non-breaking change adding functionality)
+- [ ] Documentation update (README, CONTRIBUTING, comments)
+- [ ] Breaking change (fix or feature that would cause existing functionality to not work as expected)
 
-## Changes Made
-- List key changes and additions.
-- Reference modified files and modules.
+## Motivation & Context
+Why is this change required? What problem does it solve? If it fixes an open issue, link it here (e.g. Fixes #123).
 
 ## Testing Performed
-- [ ] Backend tests passing (`pytest backend/tests`)
-- [ ] Frontend build passing (`cd frontend && npm run build`)
-- [ ] Manual verification in Control Room or Typer CLI
-
-## Breaking Changes
-- [ ] Yes (explain below)
-- [ ] No
-
-## Checklist
-- [ ] My code follows the style guidelines of this project
-- [ ] I have performed a self-review of my own code
-- [ ] I have added tests that prove my fix or feature works
-- [ ] I have updated the documentation accordingly
+- [ ] I have run the test suite locally.
+- [ ] I have added tests that prove my fix is effective or that my feature works.

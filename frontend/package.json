@@ -22,5 +22,6 @@
     "postcss": "^8.5.26",
     "recharts": "^3.10.1",
     "tailwindcss": "^4.3.3"
-  }
+  },
+  "author": "PicadoLabs"
 }
