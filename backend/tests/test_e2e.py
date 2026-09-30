@@ -1,4 +1,4 @@
-﻿import pytest
+import pytest
 from httpx import AsyncClient, ASGITransport
 from main import app
 from app.storage.database import init_db
@@ -125,3 +125,19 @@ async def test_api_traffic_export_rejects_unknown_format():
         export_res = await client.get("/api/traffic/export?format=xml")
 
     assert export_res.status_code == 422
+
+@pytest.mark.asyncio
+async def test_api_generate_streaming():
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        payload = {"prompt": "Hello", "policy": "balanced", "stream": True}
+        async with client.stream("POST", "/api/generate", json=payload) as response:
+            assert response.status_code == 200
+            events = []
+            async for chunk in response.aiter_text():
+                events.append(chunk)
+            # The stream yields SSE text format
+            full_resp = "".join(events)
+            assert "event: start" in full_resp
+            assert "event: chunk" in full_resp
+            assert "event: done" in full_resp
