@@ -1,4 +1,4 @@
-﻿import uuid
+import uuid
 import time
 import asyncio
 import csv
@@ -6,6 +6,7 @@ import io
 from typing import List, Optional, Dict, Any
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import JSONResponse, StreamingResponse
+from sse_starlette.sse import EventSourceResponse
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, desc
@@ -56,6 +57,8 @@ class GenerateRequest(BaseModel):
     force_model: Optional[str] = None
     temperature: float = 0.7
     max_retries: int = 1
+    stream: bool = False
+    stream: bool = False
 
 
 class FeedbackSubmitRequest(BaseModel):
@@ -223,7 +226,113 @@ async def api_generate_response(req: GenerateRequest, db: AsyncSession = Depends
     target_meta = next((m for m in models if m.id == selected_model_id), None)
     selected_provider_id = target_meta.provider if target_meta else decision.provider
 
-    # 5. Provider Execution with Fallback & Retries
+    if req.stream:
+        from app.storage.database import AsyncSessionLocal
+        import json
+        
+        async def stream_generator():
+            provider = provider_registry.get_provider(selected_provider_id) or provider_registry.get_provider("mock")
+            full_content = ""
+            first_token_ms = None
+            t_stream_start = time.perf_counter()
+            
+            yield {"event": "start", "data": json.dumps({"model": selected_model_id, "provider": selected_provider_id})}
+            
+            try:
+                async for chunk in provider.stream(
+                    prompt=req.prompt,
+                    model_id=selected_model_id,
+                    system_prompt=req.system_prompt,
+                    temperature=req.temperature,
+                ):
+                    if first_token_ms is None:
+                        first_token_ms = (time.perf_counter() - t_stream_start) * 1000.0
+                    full_content += chunk
+                    yield {"event": "chunk", "data": json.dumps({"chunk": chunk})}
+            except Exception as e:
+                yield {"event": "error", "data": json.dumps({"error": str(e)})}
+            
+            t_total = time.perf_counter() - t_start
+            
+            async with AsyncSessionLocal() as stream_db:
+                in_tok = max(1, len(req.prompt) // 4)
+                out_tok = max(1, len(full_content) // 4)
+                cost_in = target_meta.cost_per_input_token if target_meta else 0.0
+                cost_out = target_meta.cost_per_output_token if target_meta else 0.0
+                actual_cost = round((in_tok * cost_in) + (out_tok * cost_out), 6)
+                
+                res_base = await stream_db.execute(select(ModelRecord).filter_by(id=settings.BASELINE_MODEL_ID))
+                base_m = res_base.scalar_one_or_none()
+                base_cost = round((in_tok * base_m.cost_per_input_token) + (out_tok * base_m.cost_per_output_token), 6) if base_m else 0.0
+                saved_cost = max(0.0, round(base_cost - actual_cost, 6))
+
+                from app.budgets.manager import check_budget_threshold
+                await check_budget_threshold(stream_db, actual_cost)
+                
+                req_record = RequestRecord(
+                    request_id=req_id,
+                    prompt=req.prompt,
+                    task_type=analysis.task_type.value,
+                    complexity=analysis.complexity,
+                    context_size=analysis.context_size,
+                    reasoning_required=analysis.reasoning_required,
+                    coding_required=analysis.coding_required,
+                    routing_policy=policy_name,
+                    selected_model=selected_model_id,
+                    provider=selected_provider_id,
+                    status="SUCCESS",
+                    fallback_used=False,
+                    input_tokens=in_tok,
+                    output_tokens=out_tok,
+                    total_tokens=in_tok + out_tok,
+                    estimated_cost=actual_cost,
+                    baseline_cost=base_cost,
+                    cost_saved=saved_cost,
+                    routing_latency_ms=round(routing_latency_ms, 2),
+                    provider_latency_ms=round((time.perf_counter() - t_stream_start) * 1000.0, 2),
+                    total_latency_ms=round(t_total * 1000.0, 2),
+                    time_to_first_token_ms=round(first_token_ms, 2) if first_token_ms else 0.0,
+                )
+                stream_db.add(req_record)
+
+                decision_record = RoutingDecisionRecord(
+                    decision_id=decision.decision_id,
+                    request_id=req_id,
+                    selected_model=decision.selected_model,
+                    confidence=decision.confidence,
+                    reasons=decision.reasons,
+                    candidate_scores=[s.model_dump() for s in decision.candidate_scores],
+                    rejected_candidates=decision.rejected_candidates,
+                    policy_used=policy_name,
+                )
+                stream_db.add(decision_record)
+
+                resp_record = ResponseRecord(
+                    response_id=f"resp_{uuid.uuid4().hex[:12]}",
+                    request_id=req_id,
+                    model_id=selected_model_id,
+                    provider=selected_provider_id,
+                    content=full_content,
+                    finish_reason="stop",
+                    is_mock=(selected_provider_id == "mock"),
+                )
+                stream_db.add(resp_record)
+                await stream_db.commit()
+
+                log_router_event(
+                    event_name="request_completed_stream",
+                    request_id=req_id,
+                    model=selected_model_id,
+                    provider=selected_provider_id,
+                    duration_ms=round(t_total * 1000.0, 2),
+                    metadata={"tokens": in_tok + out_tok, "cost": actual_cost, "fallback": False},
+                )
+            
+            yield {"event": "done", "data": "[DONE]"}
+
+        return EventSourceResponse(stream_generator())
+    
+    # 5. Provider Execution with Fallback & Retries (Non-stream)
     provider_resp, fallback_used, orig_model, fallback_reason = await execute_with_fallback(
         prompt=req.prompt,
         selected_model_id=selected_model_id,
@@ -332,6 +441,7 @@ async def api_generate_response(req: GenerateRequest, db: AsyncSession = Depends
             "fallback_reason": fallback_reason,
         },
     }
+
 
 
 # Models & Registry Endpoints
