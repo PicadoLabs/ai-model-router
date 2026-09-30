@@ -3,6 +3,7 @@ import asyncio
 from typing import List, Optional, Tuple, Dict, Any
 from app.models.schemas import ProviderResponse, ModelMetadata
 from app.providers.registry import provider_registry
+from app.fallback.circuit_breaker import circuit_breaker
 from app.config.settings import get_settings
 
 settings = get_settings()
@@ -53,23 +54,28 @@ async def execute_with_fallback(
         fallback_used = True
         fallback_reason = f"Provider '{selected_provider_id}' is not loaded. Fell back to Mock."
 
-    for attempt in range(max_retries + 1):
-        resp = await provider.generate(
-            prompt=prompt,
-            model_id=current_model_id,
-            system_prompt=system_prompt,
-            temperature=temperature,
-        )
+    if not circuit_breaker.is_available(current_provider_id):
+        fallback_reason = f"Provider '{current_provider_id}' circuit breaker is OPEN."
+        fallback_used = True
+    else:
+        for attempt in range(max_retries + 1):
+            resp = await provider.generate(
+                prompt=prompt,
+                model_id=current_model_id,
+                system_prompt=system_prompt,
+                temperature=temperature,
+            )
 
-        if not resp.error and resp.finish_reason != "error":
-            return resp, fallback_used, original_model if fallback_used else None, fallback_reason
+            if not resp.error and resp.finish_reason != "error":
+                circuit_breaker.record_success(current_provider_id)
+                return resp, fallback_used, original_model if fallback_used else None, fallback_reason
 
-        # If non-retryable error or last attempt, prepare for fallback
-        if not is_retryable(resp.error) or attempt == max_retries:
-            fallback_reason = resp.error or "Unknown primary model execution error."
-            break
+            if not is_retryable(resp.error) or attempt == max_retries:
+                fallback_reason = resp.error or "Unknown primary model execution error."
+                circuit_breaker.record_failure(current_provider_id)
+                break
 
-        await asyncio.sleep(0.5 * (attempt + 1))
+            await asyncio.sleep(0.5 * (attempt + 1))
 
     # Step 2: Determine Fallback Candidate
     fallback_used = True
