@@ -37,6 +37,7 @@ from app.budgets.manager import check_budget_threshold
 from app.observability.events import log_router_event
 from app.analytics.service import get_system_analytics, calculate_cost_savings
 from app.providers.registry import provider_registry
+from app.fallback.circuit_breaker import circuit_breaker
 from app.config.settings import get_settings
 
 router = APIRouter()
@@ -231,17 +232,26 @@ async def api_generate_response(req: GenerateRequest, db: AsyncSession = Depends
         import json
         
         async def stream_generator():
-            provider = provider_registry.get_provider(selected_provider_id) or provider_registry.get_provider("mock")
+            p_id = selected_provider_id
+            m_id = selected_model_id
+            is_fallback = False
+            
+            if not circuit_breaker.is_available(p_id):
+                p_id = "mock"
+                m_id = "mock-balanced"
+                is_fallback = True
+
+            provider = provider_registry.get_provider(p_id) or provider_registry.get_provider("mock")
             full_content = ""
             first_token_ms = None
             t_stream_start = time.perf_counter()
             
-            yield {"event": "start", "data": json.dumps({"model": selected_model_id, "provider": selected_provider_id})}
+            yield {"event": "start", "data": json.dumps({"model": m_id, "provider": p_id})}
             
             try:
                 async for chunk in provider.stream(
                     prompt=req.prompt,
-                    model_id=selected_model_id,
+                    model_id=m_id,
                     system_prompt=req.system_prompt,
                     temperature=req.temperature,
                 ):
@@ -278,10 +288,10 @@ async def api_generate_response(req: GenerateRequest, db: AsyncSession = Depends
                     reasoning_required=analysis.reasoning_required,
                     coding_required=analysis.coding_required,
                     routing_policy=policy_name,
-                    selected_model=selected_model_id,
-                    provider=selected_provider_id,
+                    selected_model=m_id,
+                    provider=p_id,
                     status="SUCCESS",
-                    fallback_used=False,
+                    fallback_used=is_fallback,
                     input_tokens=in_tok,
                     output_tokens=out_tok,
                     total_tokens=in_tok + out_tok,
@@ -310,11 +320,11 @@ async def api_generate_response(req: GenerateRequest, db: AsyncSession = Depends
                 resp_record = ResponseRecord(
                     response_id=f"resp_{uuid.uuid4().hex[:12]}",
                     request_id=req_id,
-                    model_id=selected_model_id,
-                    provider=selected_provider_id,
+                    model_id=m_id,
+                    provider=p_id,
                     content=full_content,
                     finish_reason="stop",
-                    is_mock=(selected_provider_id == "mock"),
+                    is_mock=(p_id == "mock"),
                 )
                 stream_db.add(resp_record)
                 await stream_db.commit()
@@ -322,10 +332,10 @@ async def api_generate_response(req: GenerateRequest, db: AsyncSession = Depends
                 log_router_event(
                     event_name="request_completed_stream",
                     request_id=req_id,
-                    model=selected_model_id,
-                    provider=selected_provider_id,
+                    model=m_id,
+                    provider=p_id,
                     duration_ms=round(t_total * 1000.0, 2),
-                    metadata={"tokens": in_tok + out_tok, "cost": actual_cost, "fallback": False},
+                    metadata={"tokens": in_tok + out_tok, "cost": actual_cost, "fallback": is_fallback},
                 )
             
             yield {"event": "done", "data": "[DONE]"}
