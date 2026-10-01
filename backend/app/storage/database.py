@@ -12,11 +12,19 @@ from app.storage.models import (
 
 settings = get_settings()
 
-engine = create_async_engine(
-    settings.DATABASE_URL,
-    echo=False,
-    connect_args={"check_same_thread": False} if "sqlite" in settings.DATABASE_URL else {},
-)
+if settings.DATABASE_URL.startswith("sqlite"):
+    engine = create_async_engine(
+        settings.DATABASE_URL, 
+        echo=False, 
+        connect_args={"check_same_thread": False}
+    )
+else:
+    engine = create_async_engine(
+        settings.DATABASE_URL, 
+        echo=False, 
+        pool_size=20, 
+        max_overflow=10
+    )
 
 AsyncSessionLocal = async_sessionmaker(
     bind=engine,
