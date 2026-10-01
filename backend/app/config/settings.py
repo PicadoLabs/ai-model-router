@@ -10,6 +10,7 @@ class Settings(BaseSettings):
     HOST: str = "0.0.0.0"
 
     DATABASE_URL: str = "sqlite+aiosqlite:///./model_router.db"
+    REDIS_URL: Optional[str] = None
     ROUTER_ANALYZER: str = "rules"  # "rules" or "llm"
     DEFAULT_ROUTING_POLICY: str = "balanced"
     BASELINE_MODEL_ID: str = "mock-power"
