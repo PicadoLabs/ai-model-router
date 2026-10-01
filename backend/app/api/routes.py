@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, desc
 
 from app.storage.database import get_db
+from app.storage.redis_client import get_redis
 from app.storage.models import (
     ModelRecord,
     RoutingPolicyRecord,
@@ -508,6 +509,26 @@ async def get_traffic_feed(limit: int = 50, db: AsyncSession = Depends(get_db)):
     res = await db.execute(select(RequestRecord).order_by(desc(RequestRecord.timestamp)).limit(limit))
     return res.scalars().all()
 
+
+
+@router.get("/api/traffic/stream")
+async def traffic_stream():
+    redis = get_redis()
+    if not redis:
+        raise HTTPException(status_code=503, detail="Redis Pub/Sub not available")
+        
+    async def event_generator():
+        pubsub = redis.pubsub()
+        await pubsub.subscribe("traffic_stream")
+        try:
+            async for message in pubsub.listen():
+                if message["type"] == "message":
+                    yield {"event": "traffic", "data": message["data"]}
+        finally:
+            await pubsub.unsubscribe("traffic_stream")
+            await pubsub.close()
+            
+    return EventSourceResponse(event_generator())
 
 @router.get("/api/traffic/export")
 async def export_traffic(

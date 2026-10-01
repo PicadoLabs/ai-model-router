@@ -2,6 +2,8 @@ import json
 import logging
 from typing import Dict, Any, Optional
 import datetime
+from app.storage.redis_client import publish_traffic_event
+import asyncio
 
 logger = logging.getLogger("model_router.observability")
 logger.setLevel(logging.INFO)
@@ -40,4 +42,12 @@ def log_router_event(
         }
         payload["metadata"] = safe_meta
 
+
     logger.info(json.dumps(payload))
+    
+    # Fire and forget Redis publish
+    try:
+        loop = asyncio.get_running_loop()
+        loop.create_task(publish_traffic_event(payload))
+    except RuntimeError:
+        pass # No running loop
