@@ -18,6 +18,8 @@ Companies building AI applications face ballooning API costs, rate limits, and l
 - **100% Local & Self-Hosted:** No data leaves the user's infrastructure.
 - **A/B Policy Experimentation:** Built-in tools to test different routing policies (e.g., "lowest cost" vs "balanced") and see projected savings.
 - **Dual-Mode Analyzer:** Uses both fast heuristics (regex/length) and LLM-based complexity scoring to route requests efficiently.
+- **Production-Ready Scalability:** Database-agnostic (SQLite for local dev, PostgreSQL for production) with Redis Pub/Sub powering the real-time SSE traffic telemetry across distributed worker nodes.
+- **Resilient Execution:** Built-in sliding-window circuit breaker dynamically bypasses failing upstream providers to prevent cascading latency spikes.
 
 ## Overview
 
