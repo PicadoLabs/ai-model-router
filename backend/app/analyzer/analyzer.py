@@ -1,8 +1,9 @@
-﻿import json
+import json
 import re
 from typing import Optional
 from app.models.schemas import RequestAnalysis, TaskType, PriorityLevel
 from app.analyzer.heuristics import analyze_request_heuristics, estimate_tokens
+from app.analyzer.semantic_classifier import semantic_classifier
 from app.providers.registry import provider_registry
 from app.config.settings import get_settings
 
@@ -27,6 +28,11 @@ Output valid JSON only with no markdown wrapping or additional text.
 async def analyze_request(prompt: str, analyzer_mode: Optional[str] = None) -> RequestAnalysis:
     mode = (analyzer_mode or settings.ROUTER_ANALYZER).lower()
 
+    # 1. Semantic Embedding / ONNX Classifier Mode
+    if mode in ["semantic", "onnx", "embedding"]:
+        return semantic_classifier.classify(prompt)
+
+    # 2. LLM Classifier Mode (via local or cloud LLM)
     if mode == "llm":
         try:
             # Attempt to use local or configured provider for classification
@@ -60,8 +66,15 @@ async def analyze_request(prompt: str, analyzer_mode: Optional[str] = None) -> R
                             analyzer_used="llm",
                         )
         except Exception:
-            # Graceful fallback to heuristics if LLM classifier is unavailable or times out
+            # Graceful fallback to semantic or heuristics if LLM classifier fails
             pass
 
-    # Default to fast, deterministic heuristics
-    return analyze_request_heuristics(prompt)
+    # 3. Default Fast Heuristics with Semantic Fallback for Ambiguous Prompts
+    analysis = analyze_request_heuristics(prompt)
+    if analysis.task_type == TaskType.GENERAL_QA and not analysis.keywords_detected:
+        # Check if semantic embedding discovers a stronger domain intent
+        semantic_res = semantic_classifier.classify(prompt)
+        if semantic_res.task_type != TaskType.GENERAL_QA:
+            return semantic_res
+
+    return analysis
