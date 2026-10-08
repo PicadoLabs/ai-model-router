@@ -34,6 +34,11 @@ class Settings(BaseSettings):
     MAX_RETRIES: int = 2
     PROVIDER_TIMEOUT_SECONDS: float = 30.0
 
+    # Authentication & Rate Limiting
+    AUTH_REQUIRED: bool = False
+    DEFAULT_RATE_LIMIT_RPM: int = 120
+    DEFAULT_RATE_LIMIT_TPM: int = 200000
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
