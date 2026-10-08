@@ -1,6 +1,7 @@
 # Model Router
 
-[![PyPI - Version](https://img.shields.io/pypi/v/model-router-cli?logo=pypi&logoColor=white&color=blue)](https://pypi.org/project/model-router-cli/)
+[![PyPI - CLI Version](https://img.shields.io/pypi/v/model-router-cli?label=model-router-cli&logo=pypi&logoColor=white&color=blue)](https://pypi.org/project/model-router-cli/1.2.0/)
+[![PyPI - SDK Version](https://img.shields.io/pypi/v/modelrouter-sdk?label=modelrouter-sdk&logo=pypi&logoColor=white&color=green)](https://pypi.org/project/modelrouter-sdk/0.2.0/)
 [![PyPI - Python Version](https://img.shields.io/pypi/pyversions/model-router-cli?logo=python&logoColor=white)](https://pypi.org/project/model-router-cli/)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![Downloads](https://static.pepy.tech/badge/model-router-cli)](https://pepy.tech/project/model-router-cli)
@@ -304,7 +305,7 @@ curl -OJ "http://127.0.0.1:8000/api/traffic/export?format=csv"
 
 ## Running Tests
 
-The test suite includes **63 automated unit, integration, and end-to-end tests** covering semantic embedding classification, Thompson sampling RL auto-tuning, OpenTelemetry & Prometheus metrics, benchmarking Pareto evaluator, SDK clients, and circuit breakers:
+The test suite includes **66 automated unit, integration, and end-to-end tests** covering semantic embedding classification, Thompson sampling RL auto-tuning, OpenTelemetry & Prometheus metrics, benchmarking Pareto evaluator, SDK clients, and circuit breakers:
 
 ```bash
 # Run the complete test suite from repository root
@@ -338,7 +339,7 @@ ai-model-router/
 │   │   ├── providers/       # Adapters (Mock, Ollama, OpenAI, Anthropic, Gemini, DeepSeek, Groq)
 │   │   ├── router/          # Scoring matrix, pruner, rules engine & Thompson Sampling RL
 │   │   └── storage/         # SQLAlchemy models and SQLite async database
-│   ├── tests/               # Pytest suite (63 passing tests)
+│   ├── tests/               # Pytest suite (66 passing tests)
 │   └── main.py              # FastAPI application entrypoint
 ├── frontend/
 │   ├── src/
