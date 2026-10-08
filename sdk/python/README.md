@@ -63,3 +63,8 @@ async def main():
 
 asyncio.run(main())
 ```
+
+The async client also supports `async with AsyncModelRouter(...) as client:`.
+It returns the same client and awaits `close()` on normal or exceptional exit,
+without suppressing exceptions. HTTP connections currently belong to each request
+and close there; `close()` is safe to call repeatedly and owns no persistent pool.
