@@ -43,6 +43,12 @@ class Settings(BaseSettings):
     RL_ROUTING_ENABLED: bool = True
     RL_EXPLORATION_RATE: float = 0.15
 
+    # Observability (Prometheus & OpenTelemetry)
+    PROMETHEUS_METRICS_ENABLED: bool = True
+    OTEL_ENABLED: bool = True
+    OTEL_SERVICE_NAME: str = "ai-model-router"
+    OTEL_EXPORTER_OTLP_ENDPOINT: Optional[str] = None
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",

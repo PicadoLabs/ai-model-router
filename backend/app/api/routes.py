@@ -4,7 +4,7 @@ import asyncio
 import csv
 import io
 from typing import List, Optional, Dict, Any
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from fastapi.responses import JSONResponse, StreamingResponse
 from sse_starlette.sse import EventSourceResponse
 from pydantic import BaseModel, Field
@@ -41,6 +41,8 @@ from app.router.engine import route_request
 from app.fallback.handler import execute_with_fallback
 from app.budgets.manager import check_budget_threshold
 from app.observability.events import log_router_event
+from app.observability.metrics import metrics_collector
+from app.observability.tracing import router_tracer
 from app.analytics.service import get_system_analytics, calculate_cost_savings
 from app.providers.registry import provider_registry
 from app.fallback.circuit_breaker import circuit_breaker
@@ -944,6 +946,15 @@ async def revoke_api_key(key_id: str, db: AsyncSession = Depends(get_db)):
     key.is_active = False
     await db.commit()
     return {"status": "revoked", "id": key_id}
+
+
+# Prometheus Metrics
+@router.get("/metrics")
+@router.get("/api/metrics")
+async def get_prometheus_metrics():
+    """Prometheus exposition metrics scraping endpoint."""
+    content, content_type = metrics_collector.export_metrics()
+    return Response(content=content, media_type=content_type)
 
 
 # Health Check
