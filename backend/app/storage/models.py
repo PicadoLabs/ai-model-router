@@ -88,10 +88,43 @@ class RoutingRuleRecord(Base):
     created_at = Column(DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc))
 
 
+class WorkspaceRecord(Base):
+    __tablename__ = "workspaces"
+
+    id = Column(String(100), primary_key=True)
+    name = Column(String(200), nullable=False)
+    description = Column(String(500), nullable=True)
+    daily_budget = Column(Float, default=100.0)
+    monthly_budget = Column(Float, default=1000.0)
+    rate_limit_rpm = Column(Integer, default=120)
+    rate_limit_tpm = Column(Integer, default=200000)
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc))
+    updated_at = Column(DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc), onupdate=lambda: datetime.datetime.now(datetime.timezone.utc))
+
+
+class ApiKeyRecord(Base):
+    __tablename__ = "api_keys"
+
+    id = Column(String(100), primary_key=True)
+    key_hash = Column(String(64), nullable=False, unique=True, index=True)
+    key_prefix = Column(String(16), nullable=False)  # e.g. "mr_live_a1b2c3"
+    name = Column(String(200), nullable=False)
+    workspace_id = Column(String(100), ForeignKey("workspaces.id"), nullable=False, default="default")
+    rate_limit_rpm = Column(Integer, nullable=True)
+    rate_limit_tpm = Column(Integer, nullable=True)
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc))
+    last_used_at = Column(DateTime, nullable=True)
+    expires_at = Column(DateTime, nullable=True)
+
+
 class RequestRecord(Base):
     __tablename__ = "requests"
 
     request_id = Column(String(100), primary_key=True)
+    workspace_id = Column(String(100), default="default", index=True)
+    api_key_id = Column(String(100), nullable=True)
     timestamp = Column(DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc))
     prompt = Column(Text, nullable=False)
     task_type = Column(String(50), nullable=False)

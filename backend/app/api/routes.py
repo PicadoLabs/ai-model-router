@@ -23,7 +23,11 @@ from app.storage.models import (
     FeedbackRecord,
     BudgetRecord,
     ExperimentRecord,
+    WorkspaceRecord,
+    ApiKeyRecord,
 )
+from app.auth.security import get_auth_context, AuthContext, generate_api_key, hash_api_key
+from app.auth.rate_limiter import rate_limiter
 from app.models.schemas import (
     ModelMetadata,
     RequestAnalysis,
@@ -99,6 +103,33 @@ class RuleCreateRequest(BaseModel):
     action_target: str
 
 
+class WorkspaceCreateRequest(BaseModel):
+    id: Optional[str] = None
+    name: str
+    description: Optional[str] = None
+    daily_budget: float = 100.0
+    monthly_budget: float = 1000.0
+    rate_limit_rpm: int = 120
+    rate_limit_tpm: int = 200000
+
+
+class WorkspaceUpdateRequest(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    daily_budget: Optional[float] = None
+    monthly_budget: Optional[float] = None
+    rate_limit_rpm: Optional[int] = None
+    rate_limit_tpm: Optional[int] = None
+    is_active: Optional[bool] = None
+
+
+class ApiKeyCreateRequest(BaseModel):
+    name: str
+    workspace_id: Optional[str] = "default"
+    rate_limit_rpm: Optional[int] = None
+    rate_limit_tpm: Optional[int] = None
+
+
 # Helper to convert DB model record to Pydantic ModelMetadata
 def db_model_to_meta(m: ModelRecord) -> ModelMetadata:
     return ModelMetadata(
@@ -123,11 +154,21 @@ def db_model_to_meta(m: ModelRecord) -> ModelMetadata:
 
 
 @router.post("/api/route", response_model=Dict[str, Any])
-async def api_route_prompt(req: RouteOnlyRequest, db: AsyncSession = Depends(get_db)):
+async def api_route_prompt(
+    req: RouteOnlyRequest, 
+    auth: AuthContext = Depends(get_auth_context),
+    db: AsyncSession = Depends(get_db)
+):
     """
     Dry-run routing inspection endpoint:
     Analyzes request and produces structured routing decision without invoking provider.
     """
+    # Enforce Rate Limiting per workspace / API key
+    await rate_limiter.enforce_rate_limit(
+        identifier=auth.api_key_id or auth.workspace_id,
+        limit_rpm=auth.rate_limit_rpm,
+    )
+
     t_start = time.perf_counter()
     req_id = f"req_{uuid.uuid4().hex[:12]}"
     
@@ -177,11 +218,21 @@ async def api_route_prompt(req: RouteOnlyRequest, db: AsyncSession = Depends(get
 
 
 @router.post("/api/generate", response_model=Dict[str, Any])
-async def api_generate_response(req: GenerateRequest, db: AsyncSession = Depends(get_db)):
+async def api_generate_response(
+    req: GenerateRequest, 
+    auth: AuthContext = Depends(get_auth_context),
+    db: AsyncSession = Depends(get_db)
+):
     """
     End-to-End routed execution:
     Analyzes -> Routes -> Executes Selected Model / Fallback -> Records Decision & Metrics.
     """
+    # Enforce Rate Limiting per workspace / API key
+    await rate_limiter.enforce_rate_limit(
+        identifier=auth.api_key_id or auth.workspace_id,
+        limit_rpm=auth.rate_limit_rpm,
+    )
+
     t_start = time.perf_counter()
     req_id = f"req_{uuid.uuid4().hex[:12]}"
     
@@ -282,6 +333,8 @@ async def api_generate_response(req: GenerateRequest, db: AsyncSession = Depends
                 
                 req_record = RequestRecord(
                     request_id=req_id,
+                    workspace_id=auth.workspace_id,
+                    api_key_id=auth.api_key_id,
                     prompt=req.prompt,
                     task_type=analysis.task_type.value,
                     complexity=analysis.complexity,
@@ -336,7 +389,7 @@ async def api_generate_response(req: GenerateRequest, db: AsyncSession = Depends
                     model=m_id,
                     provider=p_id,
                     duration_ms=round(t_total * 1000.0, 2),
-                    metadata={"tokens": in_tok + out_tok, "cost": actual_cost, "fallback": is_fallback},
+                    metadata={"tokens": in_tok + out_tok, "cost": actual_cost, "fallback": is_fallback, "workspace_id": auth.workspace_id},
                 )
             
             yield {"event": "done", "data": "[DONE]"}
@@ -376,6 +429,8 @@ async def api_generate_response(req: GenerateRequest, db: AsyncSession = Depends
     # 7. Persistence
     req_record = RequestRecord(
         request_id=req_id,
+        workspace_id=auth.workspace_id,
+        api_key_id=auth.api_key_id,
         prompt=req.prompt,
         task_type=analysis.task_type.value,
         complexity=analysis.complexity,
@@ -717,6 +772,162 @@ async def get_budget(db: AsyncSession = Depends(get_db)):
 async def list_experiments(db: AsyncSession = Depends(get_db)):
     res = await db.execute(select(ExperimentRecord))
     return res.scalars().all()
+
+
+# Workspaces
+@router.get("/api/workspaces")
+async def list_workspaces(db: AsyncSession = Depends(get_db)):
+    res = await db.execute(select(WorkspaceRecord))
+    workspaces = res.scalars().all()
+    results = []
+    for ws in workspaces:
+        # Calculate spend & request count for workspace
+        req_res = await db.execute(
+            select(
+                RequestRecord.estimated_cost,
+                RequestRecord.status,
+            ).filter_by(workspace_id=ws.id)
+        )
+        req_rows = req_res.all()
+        total_requests = len(req_rows)
+        total_spend = sum(r[0] for r in req_rows if r[0])
+        results.append({
+            "id": ws.id,
+            "name": ws.name,
+            "description": ws.description,
+            "daily_budget": ws.daily_budget,
+            "monthly_budget": ws.monthly_budget,
+            "rate_limit_rpm": ws.rate_limit_rpm,
+            "rate_limit_tpm": ws.rate_limit_tpm,
+            "is_active": ws.is_active,
+            "total_requests": total_requests,
+            "total_spend": round(total_spend, 6),
+            "created_at": ws.created_at.isoformat() if ws.created_at else None,
+        })
+    return results
+
+
+@router.post("/api/workspaces")
+async def create_workspace(req: WorkspaceCreateRequest, db: AsyncSession = Depends(get_db)):
+    ws_id = req.id or f"ws_{uuid.uuid4().hex[:8]}"
+    existing = await db.execute(select(WorkspaceRecord).filter_by(id=ws_id))
+    if existing.scalar_one_or_none():
+        raise HTTPException(status_code=400, detail=f"Workspace with id '{ws_id}' already exists")
+    record = WorkspaceRecord(
+        id=ws_id,
+        name=req.name,
+        description=req.description,
+        daily_budget=req.daily_budget,
+        monthly_budget=req.monthly_budget,
+        rate_limit_rpm=req.rate_limit_rpm,
+        rate_limit_tpm=req.rate_limit_tpm,
+        is_active=True,
+    )
+    db.add(record)
+    await db.commit()
+    return record
+
+
+@router.get("/api/workspaces/{workspace_id}")
+async def get_workspace(workspace_id: str, db: AsyncSession = Depends(get_db)):
+    res = await db.execute(select(WorkspaceRecord).filter_by(id=workspace_id))
+    ws = res.scalar_one_or_none()
+    if not ws:
+        raise HTTPException(status_code=404, detail="Workspace not found")
+    return ws
+
+
+@router.put("/api/workspaces/{workspace_id}")
+async def update_workspace(workspace_id: str, req: WorkspaceUpdateRequest, db: AsyncSession = Depends(get_db)):
+    res = await db.execute(select(WorkspaceRecord).filter_by(id=workspace_id))
+    ws = res.scalar_one_or_none()
+    if not ws:
+        raise HTTPException(status_code=404, detail="Workspace not found")
+    if req.name is not None:
+        ws.name = req.name
+    if req.description is not None:
+        ws.description = req.description
+    if req.daily_budget is not None:
+        ws.daily_budget = req.daily_budget
+    if req.monthly_budget is not None:
+        ws.monthly_budget = req.monthly_budget
+    if req.rate_limit_rpm is not None:
+        ws.rate_limit_rpm = req.rate_limit_rpm
+    if req.rate_limit_tpm is not None:
+        ws.rate_limit_tpm = req.rate_limit_tpm
+    if req.is_active is not None:
+        ws.is_active = req.is_active
+    await db.commit()
+    return ws
+
+
+# API Keys
+@router.get("/api/keys")
+async def list_api_keys(workspace_id: Optional[str] = None, db: AsyncSession = Depends(get_db)):
+    query = select(ApiKeyRecord)
+    if workspace_id:
+        query = query.filter_by(workspace_id=workspace_id)
+    res = await db.execute(query)
+    keys = res.scalars().all()
+    return [
+        {
+            "id": k.id,
+            "name": k.name,
+            "key_prefix": k.key_prefix,
+            "workspace_id": k.workspace_id,
+            "rate_limit_rpm": k.rate_limit_rpm,
+            "rate_limit_tpm": k.rate_limit_tpm,
+            "is_active": k.is_active,
+            "created_at": k.created_at.isoformat() if k.created_at else None,
+            "last_used_at": k.last_used_at.isoformat() if k.last_used_at else None,
+            "expires_at": k.expires_at.isoformat() if k.expires_at else None,
+        }
+        for k in keys
+    ]
+
+
+@router.post("/api/keys")
+async def create_api_key(req: ApiKeyCreateRequest, db: AsyncSession = Depends(get_db)):
+    # Verify workspace exists
+    ws_res = await db.execute(select(WorkspaceRecord).filter_by(id=req.workspace_id))
+    if not ws_res.scalar_one_or_none():
+        raise HTTPException(status_code=404, detail=f"Workspace '{req.workspace_id}' not found")
+    
+    raw_key, key_hash, key_prefix = generate_api_key()
+    key_id = f"key_{uuid.uuid4().hex[:8]}"
+    record = ApiKeyRecord(
+        id=key_id,
+        key_hash=key_hash,
+        key_prefix=key_prefix,
+        name=req.name,
+        workspace_id=req.workspace_id,
+        rate_limit_rpm=req.rate_limit_rpm,
+        rate_limit_tpm=req.rate_limit_tpm,
+        is_active=True,
+    )
+    db.add(record)
+    await db.commit()
+    
+    return {
+        "id": record.id,
+        "name": record.name,
+        "key": raw_key,  # Returned only once upon creation
+        "key_prefix": record.key_prefix,
+        "workspace_id": record.workspace_id,
+        "rate_limit_rpm": record.rate_limit_rpm,
+        "created_at": record.created_at.isoformat() if record.created_at else None,
+    }
+
+
+@router.delete("/api/keys/{key_id}")
+async def revoke_api_key(key_id: str, db: AsyncSession = Depends(get_db)):
+    res = await db.execute(select(ApiKeyRecord).filter_by(id=key_id))
+    key = res.scalar_one_or_none()
+    if not key:
+        raise HTTPException(status_code=404, detail="API key not found")
+    key.is_active = False
+    await db.commit()
+    return {"status": "revoked", "id": key_id}
 
 
 # Health Check

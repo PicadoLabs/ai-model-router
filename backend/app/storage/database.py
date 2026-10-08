@@ -8,6 +8,8 @@ from app.storage.models import (
     RoutingPolicyRecord,
     RoutingRuleRecord,
     BudgetRecord,
+    WorkspaceRecord,
+    ApiKeyRecord,
 )
 
 settings = get_settings()
@@ -308,6 +310,40 @@ async def init_db():
                     cost_per_input_token=0.00000088,
                     cost_per_output_token=0.00000088,
                 ),
+                ModelRecord(
+                    id="jev-1-reasoning",
+                    name="JEV-1 Frontier Reasoning",
+                    provider="mock",
+                    type="CLOUD",
+                    tier="POWER",
+                    context_window=262144,
+                    supports_coding=True,
+                    supports_reasoning=True,
+                    supports_vision=True,
+                    supports_tools=True,
+                    quality_score=0.99,
+                    speed_score=0.82,
+                    reliability_score=0.99,
+                    cost_per_input_token=0.0000012,
+                    cost_per_output_token=0.0000048,
+                ),
+                ModelRecord(
+                    id="jev-pro",
+                    name="JEV Pro High-Throughput",
+                    provider="mock",
+                    type="CLOUD",
+                    tier="FAST",
+                    context_window=131072,
+                    supports_coding=True,
+                    supports_reasoning=True,
+                    supports_vision=True,
+                    supports_tools=True,
+                    quality_score=0.91,
+                    speed_score=0.96,
+                    reliability_score=0.99,
+                    cost_per_input_token=0.0000002,
+                    cost_per_output_token=0.0000008,
+                ),
             ]
             session.add_all(default_models)
 
@@ -421,5 +457,42 @@ async def init_db():
                 ),
             ]
             session.add_all(default_rules)
+
+        # Check default workspaces
+        res_ws = await session.execute(select(WorkspaceRecord))
+        workspaces = res_ws.scalars().all()
+        if not workspaces:
+            session.add(
+                WorkspaceRecord(
+                    id="default",
+                    name="Default Workspace",
+                    description="Primary enterprise workspace for AI Model Router",
+                    daily_budget=settings.DAILY_BUDGET,
+                    monthly_budget=settings.MONTHLY_BUDGET,
+                    rate_limit_rpm=settings.DEFAULT_RATE_LIMIT_RPM,
+                    rate_limit_tpm=settings.DEFAULT_RATE_LIMIT_TPM,
+                    is_active=True,
+                )
+            )
+
+        # Check default API Keys
+        res_k = await session.execute(select(ApiKeyRecord))
+        keys = res_k.scalars().all()
+        if not keys:
+            import hashlib
+            dev_key = "mr_live_dev_master_key_12345"
+            dev_hash = hashlib.sha256(dev_key.encode("utf-8")).hexdigest()
+            session.add(
+                ApiKeyRecord(
+                    id="key_dev_default",
+                    key_hash=dev_hash,
+                    key_prefix="mr_live_dev_...",
+                    name="Default Development Key",
+                    workspace_id="default",
+                    rate_limit_rpm=settings.DEFAULT_RATE_LIMIT_RPM,
+                    rate_limit_tpm=settings.DEFAULT_RATE_LIMIT_TPM,
+                    is_active=True,
+                )
+            )
 
         await session.commit()
