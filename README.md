@@ -37,35 +37,48 @@ Companies building AI applications face ballooning API costs, rate limits, and l
 - **Traffic Control Room UI**: Real-time operational interface with dark/light mode, live topology graphs, playground inspector, SSE live request stream, telemetry export as CSV/JSON, visual rules builder, and cost savings simulator.
 - **Drop-In Client SDKs**: Native Python (`modelrouter-sdk`) and TypeScript/JavaScript (`@picadolabs/modelrouter-sdk`) libraries for 1-line OpenAI client replacement.
 
----
+## System Architecture & End-to-End Workflow
 
-## Architecture & Workflow
+```mermaid
+flowchart TD
+    classDef client fill:#0f172a,stroke:#38bdf8,stroke-width:2.5px,color:#f8fafc,rx:10,ry:10;
+    classDef gateway fill:#1e1b4b,stroke:#818cf8,stroke-width:2.5px,color:#f8fafc,rx:10,ry:10;
+    classDef brain fill:#311042,stroke:#c084fc,stroke-width:2.5px,color:#f8fafc,rx:10,ry:10;
+    classDef exec fill:#064e3b,stroke:#34d399,stroke-width:2.5px,color:#f8fafc,rx:10,ry:10;
+    classDef models fill:#1e293b,stroke:#64748b,stroke-width:2px,color:#f8fafc,rx:8,ry:8;
+    classDef telemetry fill:#431407,stroke:#fb923c,stroke-width:2.5px,color:#f8fafc,rx:10,ry:10;
 
-```text
-[ Client Application / SDK / Typer CLI ]
-                   │
-                   ▼
-       [ FastAPI Gateway (Port 8000) ]
-                   │
-  ┌────────────────┴──────────────────────────┐
-  │ 1. Workspace Auth & Token Bucket Limiter  │  --> Bearer mr_live_...
-  │ 2. Semantic Embedding & Complexity Score  │  --> Task Type (<3ms overhead)
-  │ 3. Priority Rules & Pruning Filter        │  --> Context size & Capabilities
-  │ 4. Multi-Criteria Scoring & RL Tuner      │  --> Normalized Multi-Dimension Score
-  │ 5. Decision Factor & Explainability Log   │  --> Itemized Reason Report
-  └────────────────┬──────────────────────────┘
-                   │
-                   ▼
-  [ Circuit Breaker & Provider Execution ]
-    ├── Local: Ollama Provider (qwen2.5-coder, llama3.2, deepseek-r1)
-    ├── Frontier: OpenAI, Anthropic, Gemini, DeepSeek, Together, Groq
-    └── Simulated: In-Memory Mock Provider (Zero Cost)
-                   │
-                   ▼
-  [ Observability & Storage Engine ]
-    ├── OpenTelemetry Spans & Prometheus `/metrics`
-    ├── Asynchronous SQLite WAL / PostgreSQL Database
-    └── Redis Pub/Sub -> Real-Time SSE Stream -> React Control Room (Port 5173)
+    subgraph TOP[" "]
+        direction LR
+        A["<b>1. CLIENT INGESTION</b><br/>Python SDK • TypeScript SDK • Typer CLI • REST API"]:::client
+        B["<b>2. API GATEWAY & AUTH</b><br/>Bearer Tokens (mr_live_...) • Token Bucket Rate Limiter"]:::gateway
+    end
+
+    subgraph MID[" "]
+        direction LR
+        C["<b>3. TRIPLE-MODE ANALYZER</b><br/>Fast Heuristics (&lt;3ms) • ONNX Embeddings • LLM Complexity"]:::brain
+        D["<b>4. MULTI-CRITERIA SCORING</b><br/>Cost, Latency, Quality Matrix • Thompson Sampling RL"]:::brain
+    end
+
+    subgraph BOT[" "]
+        direction LR
+        E["<b>5. RESILIENCE & CIRCUIT BREAKER</b><br/>Sliding-Window Failure Detector • Tiered Fallback Engine"]:::exec
+        F["<b>6. OBSERVABILITY & TELEMETRY</b><br/>Prometheus /metrics • OpenTelemetry Spans • SSE Stream"]:::telemetry
+    end
+
+    subgraph PROV["<b>7. UPSTREAM PROVIDERS</b>"]
+        direction LR
+        M1["<b>Frontier Models</b><br/>GPT-4o • Claude 3.5 • Gemini 1.5"]:::models
+        M2["<b>Fast & Local Models</b><br/>DeepSeek • Groq • Ollama (Llama 3)"]:::models
+        M3["<b>Zero-Cost Mock</b><br/>In-Memory Demo Engine"]:::models
+    end
+
+    A ==>|Inbound Prompt| B
+    B ==>|Authenticated Request| C
+    C ==>|Task & Complexity Context| D
+    D ==>|Optimal Model Candidate| E
+    E ==>|Dispatched Request| PROV
+    E -.->|Live Telemetry Feed| F
 ```
 
 ---
