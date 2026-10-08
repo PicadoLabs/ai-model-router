@@ -1,5 +1,6 @@
-﻿from typing import List, Dict, Tuple, Optional
+from typing import List, Dict, Tuple, Optional
 from app.models.schemas import ModelMetadata, RequestAnalysis, CandidateScore, PriorityLevel
+from app.router.thompson_sampling import thompson_bandit
 
 
 def filter_candidate_models(
@@ -60,16 +61,20 @@ def compute_candidate_score(
     """
     Multi-criteria configurable scoring formula.
     Quality, Speed, CostEfficiency, CapabilityMatch, Reliability.
+    Incorporates Bayesian Thompson Sampling dynamic reward tuning.
     Normalized score: 0 to 100.
     """
-    # 1. Quality Component (0.0 to 1.0)
-    quality_comp = model.quality_score
+    # 1. Quality Component (0.0 to 1.0) with Thompson Sampling RL Sampling
+    task_name = analysis.task_type.value if hasattr(analysis.task_type, "value") else str(analysis.task_type)
+    sampled_quality = thompson_bandit.sample_quality(task_name, model.id, model.quality_score)
+    quality_comp = sampled_quality
+
     if analysis.quality_requirement == PriorityLevel.HIGH:
         # Boost premium models for high quality requirements
         if model.tier.value == "POWER":
             quality_comp = min(1.0, quality_comp * 1.15)
     elif analysis.quality_requirement == PriorityLevel.LOW:
-        quality_comp = model.quality_score * 0.9
+        quality_comp = sampled_quality * 0.9
 
     # 2. Speed Component (0.0 to 1.0)
     speed_comp = model.speed_score

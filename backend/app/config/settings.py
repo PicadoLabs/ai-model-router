@@ -39,6 +39,10 @@ class Settings(BaseSettings):
     DEFAULT_RATE_LIMIT_RPM: int = 120
     DEFAULT_RATE_LIMIT_TPM: int = 200000
 
+    # Reinforcement Learning / Thompson Sampling
+    RL_ROUTING_ENABLED: bool = True
+    RL_EXPLORATION_RATE: float = 0.15
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",

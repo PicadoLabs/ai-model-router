@@ -233,3 +233,17 @@ class ExperimentRunRecord(Base):
     latency_ms = Column(Float, default=0.0)
     feedback_rating = Column(Integer, nullable=True)
     timestamp = Column(DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc))
+
+
+class ModelRewardPosteriorRecord(Base):
+    __tablename__ = "model_reward_posteriors"
+
+    id = Column(String(150), primary_key=True)  # e.g., "mrp_CODING_deepseek-chat"
+    task_type = Column(String(50), nullable=False, index=True)
+    model_id = Column(String(100), nullable=False, index=True)
+    alpha = Column(Float, default=5.0)  # Positive reward prior pseudo-counts
+    beta_param = Column(Float, default=2.0)  # Negative reward prior pseudo-counts
+    total_samples = Column(Integer, default=0)
+    positive_feedback = Column(Integer, default=0)
+    negative_feedback = Column(Integer, default=0)
+    updated_at = Column(DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc), onupdate=lambda: datetime.datetime.now(datetime.timezone.utc))
