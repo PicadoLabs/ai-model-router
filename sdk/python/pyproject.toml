@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "modelrouter-sdk"
+version = "0.2.0"
+description = "Lightweight Python SDK for intelligent, explainable LLM request routing"
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "Apache-2.0" }
+authors = [{ name = "Picado Labs", email = "engineering@picadolabs.com" }]
+keywords = ["llm", "ai", "routing", "openai", "anthropic", "gemini", "ollama", "inference", "optimization"]
+dependencies = [
+    "httpx>=0.25.0",
+    "pydantic>=2.0.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/PicadoLabs/ai-model-router"
+Documentation = "https://github.com/PicadoLabs/ai-model-router#readme"
+Repository = "https://github.com/PicadoLabs/ai-model-router.git"

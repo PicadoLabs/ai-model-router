@@ -190,6 +190,72 @@ npm run dev
 
 ---
 
+## Client SDKs (Python & TypeScript)
+
+Model Router provides official lightweight, zero-dependency client libraries for drop-in routing in Python and Node.js/Browser applications.
+
+### 🐍 Python SDK (`modelrouter-sdk`)
+
+```bash
+pip install modelrouter-sdk
+```
+
+```python
+from modelrouter import ModelRouter
+
+# Initialize drop-in client
+client = ModelRouter(base_url="http://localhost:8000", policy="balanced")
+
+# 1. Standard OpenAI drop-in completion
+response = client.chat.completions.create(
+    messages=[{"role": "user", "content": "Explain Dijkstra's algorithm"}]
+)
+print("Routed Model:", response.model)
+print("Content:", response.choices[0].message.content)
+
+# 2. Real-time streaming
+for chunk in client.chat.completions.create(prompt="Write a Python script", stream=True):
+    if chunk.choices[0].delta.content:
+        print(chunk.choices[0].delta.content, end="", flush=True)
+
+# 3. Dry-run explainability inspector
+decision = client.route("Design a distributed caching architecture")
+print(f"Selected: {decision.selected_model_name} (Confidence: {decision.confidence*100:.0f}%)")
+```
+
+### ⚡ TypeScript & JavaScript SDK (`@picadolabs/modelrouter-sdk`)
+
+```bash
+npm install @picadolabs/modelrouter-sdk
+```
+
+```typescript
+import { ModelRouter } from '@picadolabs/modelrouter-sdk';
+
+const router = new ModelRouter({
+  baseUrl: 'http://localhost:8000',
+  policy: 'balanced', // 'balanced' | 'cost_optimized' | 'speed_optimized' | 'quality_first'
+});
+
+// 1. Chat Completion
+const response = await router.chat.completions.create({
+  messages: [{ role: 'user', content: 'What is the speed of light in vacuum?' }]
+});
+console.log('Response:', response.choices[0].message.content);
+console.log('Routed Model:', response.model);
+
+// 2. Real-Time Streaming
+const stream = await router.chat.completions.create({
+  prompt: 'Write a quicksort in TypeScript',
+  stream: true
+});
+for await (const chunk of stream) {
+  process.stdout.write(chunk.choices[0]?.delta?.content || '');
+}
+```
+
+---
+
 ## CLI Usage
 
 The built-in Typer CLI provides terminal commands for inspection, diagnostics, and testing (use `modelrouter` if installed via pip, or `python backend/app/cli/main.py` from source).
