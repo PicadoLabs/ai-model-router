@@ -434,6 +434,15 @@ class AsyncModelRouter:
         self.chat = AsyncChat(self)
         self.models = AsyncModels(self)
 
+    async def close(self) -> None:
+        """Close client resources (HTTP clients currently close per request)."""
+
+    async def __aenter__(self) -> "AsyncModelRouter":
+        return self
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
+        await self.close()
+
     def _get_headers(self, extra: Optional[Dict[str, str]] = None) -> Dict[str, str]:
         headers = {"Content-Type": "application/json"}
         if self.api_key:
