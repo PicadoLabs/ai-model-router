@@ -1,7 +1,6 @@
 # Model Router
 
-[![PyPI - CLI Version](https://img.shields.io/pypi/v/model-router-cli?label=model-router-cli&logo=pypi&logoColor=white&color=blue)](https://pypi.org/project/model-router-cli/1.2.0/)
-[![PyPI - SDK Version](https://img.shields.io/pypi/v/modelrouter-sdk?label=modelrouter-sdk&logo=pypi&logoColor=white&color=green)](https://pypi.org/project/modelrouter-sdk/0.2.0/)
+[![PyPI - Version](https://img.shields.io/pypi/v/model-router-cli?logo=pypi&logoColor=white&color=blue)](https://pypi.org/project/model-router-cli/)
 [![PyPI - Python Version](https://img.shields.io/pypi/pyversions/model-router-cli?logo=python&logoColor=white)](https://pypi.org/project/model-router-cli/)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![Downloads](https://static.pepy.tech/badge/model-router-cli)](https://pepy.tech/project/model-router-cli)
