@@ -957,6 +957,41 @@ async def get_prometheus_metrics():
     return Response(content=content, media_type=content_type)
 
 
+# Benchmark & Pareto Evaluator
+class BenchmarkRunRequest(BaseModel):
+    dataset: str = "gsm8k"
+    limit: int = Field(10, ge=1, le=100)
+    policies: Optional[List[str]] = None
+    models: Optional[List[str]] = None
+    baseline_model: str = "gpt-4o"
+
+
+@router.get("/api/benchmarks/datasets")
+async def get_benchmark_datasets():
+    """List available benchmark evaluation datasets."""
+    return {
+        "datasets": [
+            {"id": "gsm8k", "name": "GSM8K", "category": "Math Reasoning", "description": "Grade school math multi-step word problems with numerical answers."},
+            {"id": "humaneval", "name": "HumanEval", "category": "Code Synthesis", "description": "Python coding challenges with unit test assertions and syntax verification."},
+            {"id": "mmlu", "name": "MMLU", "category": "General Knowledge", "description": "Multiple-choice knowledge benchmarks across science, engineering, and reasoning."},
+        ]
+    }
+
+
+@router.post("/api/benchmarks/run")
+async def run_benchmark_evaluation(req: BenchmarkRunRequest):
+    """Execute benchmark suite and return Pareto frontier evaluation report."""
+    from app.experiments.benchmark import benchmark_runner
+    report = await benchmark_runner.run_benchmark(
+        dataset_name=req.dataset,
+        limit=req.limit,
+        policies_to_test=req.policies,
+        models_to_test=req.models,
+        baseline_model=req.baseline_model,
+    )
+    return report.model_dump()
+
+
 # Health Check
 @router.get("/api/health")
 async def get_health():

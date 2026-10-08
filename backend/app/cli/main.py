@@ -4,7 +4,7 @@ import asyncio
 import httpx
 import typer
 import json
-from typing import Any, Callable
+from typing import Any, Callable, Optional, List, Dict
 from rich.console import Console
 from rich.table import Table
 from rich.panel import Panel
@@ -332,6 +332,110 @@ def analytics(
             _render_output(json_output, data, _render)
 
     asyncio.run(_analytics())
+
+
+@app.command()
+def benchmark(
+    dataset: str = typer.Option("gsm8k", "--dataset", "-d", help="Benchmark dataset: gsm8k, humaneval, mmlu, or custom JSON/JSONL file path"),
+    limit: int = typer.Option(10, "--limit", "-n", help="Number of benchmark samples to evaluate"),
+    policy: str = typer.Option("all", "--policy", "-p", help="Routing policy to evaluate ('all' or specific e.g. balanced, cost_optimized)"),
+    baseline: str = typer.Option("gpt-4o", "--baseline", "-b", help="Baseline frontier model ID for comparison"),
+    format: str = typer.Option("table", "--format", "-f", help="Output format: table, markdown, json"),
+    output: Optional[str] = typer.Option(None, "--output", "-o", help="File path to save results (Markdown or JSON)"),
+    json_output: bool = typer.Option(False, "--json", "-j", help="Output raw JSON instead of formatted tables"),
+):
+    """Run automated routing benchmark and compute Cost-Accuracy Pareto Frontier."""
+    from app.experiments.benchmark import benchmark_runner
+
+    async def _run_benchmark():
+        policies = None if policy == "all" else [policy]
+        report = await benchmark_runner.run_benchmark(
+            dataset_name=dataset,
+            limit=limit,
+            policies_to_test=policies,
+            baseline_model=baseline,
+        )
+
+        def _generate_markdown() -> str:
+            lines = [
+                f"# Model Router Benchmark & Pareto Evaluation Report",
+                f"**Dataset:** {report.dataset_name} | **Samples:** {report.sample_count} | **Baseline Model:** `{report.baseline_model}` | **Date:** {report.generated_at}\n",
+                "| Candidate / Policy | Accuracy | Accuracy Retention | Latency (Avg / p95) | Cost / 1K Reqs | Cost Savings | Latency Reduction | Pareto Optimal |",
+                "|---|---|---|---|---|---|---|---|",
+            ]
+            for c in report.candidates:
+                ret_str = f"{c.accuracy_retention_percent:.1f}%"
+                savings_str = f"{'+' if c.cost_savings_percent >= 0 else ''}{c.cost_savings_percent:.1f}%"
+                lat_red_str = f"{'+' if c.latency_reduction_percent >= 0 else ''}{c.latency_reduction_percent:.1f}%"
+                pareto_str = "**YES** (Frontier)" if c.is_pareto_optimal else "No (Dominated)"
+                lines.append(
+                    f"| `{c.name}` | {c.accuracy_percent:.1f}% | {ret_str} | {c.avg_latency_ms:.0f}ms / {c.p95_latency_ms:.0f}ms | ${c.avg_cost_per_1k_usd:.4f} | {savings_str} | {lat_red_str} | {pareto_str} |"
+                )
+            lines.append("\n```text\n" + report.ascii_graph + "\n```")
+            return "\n".join(lines)
+
+        def _render() -> None:
+            console.print(Panel.fit(
+                f"[bold cyan]Automated Routing Benchmark & Pareto Evaluator[/bold cyan]\n"
+                f"Dataset: [bold yellow]{report.dataset_name}[/bold yellow] ({report.sample_count} samples) | Baseline: [bold green]{report.baseline_model}[/bold green]",
+                border_style="bright_blue"
+            ))
+
+            table = Table(title="Benchmark Performance & Pareto Frontier", border_style="bright_blue")
+            table.add_column("Candidate / Policy", style="cyan", no_wrap=True)
+            table.add_column("Accuracy", style="green")
+            table.add_column("Retention vs Baseline", style="magenta")
+            table.add_column("Avg / p95 Latency", style="yellow")
+            table.add_column("Cost / 1K Reqs", style="white")
+            table.add_column("Cost Savings", style="green")
+            table.add_column("Pareto Optimal", style="bold yellow")
+
+            for c in report.candidates:
+                savings_style = "green" if c.cost_savings_percent >= 0 else "red"
+                savings_str = f"[{savings_style}]{'+' if c.cost_savings_percent >= 0 else ''}{c.cost_savings_percent:.1f}%[/{savings_style}]"
+                pareto_tag = "[bold green][*] YES[/bold green]" if c.is_pareto_optimal else "[dim]No[/dim]"
+                table.add_row(
+                    c.name,
+                    f"{c.accuracy_percent:.1f}%",
+                    f"{c.accuracy_retention_percent:.1f}%",
+                    f"{c.avg_latency_ms:.0f}ms / {c.p95_latency_ms:.0f}ms",
+                    f"${c.avg_cost_per_1k_usd:.4f}",
+                    savings_str,
+                    pareto_tag,
+                )
+
+            console.print(table)
+            console.print("\n" + report.ascii_graph + "\n")
+
+        # Handle formatting and file export
+        if json_output or format.lower() == "json":
+            json_str = report.model_dump_json(indent=2)
+            if output:
+                with open(output, "w", encoding="utf-8") as f:
+                    f.write(json_str)
+                console.print(f"[bold green]Saved benchmark report to {output}[/bold green]")
+            else:
+                print(json_str)
+        elif format.lower() == "markdown":
+            md_str = _generate_markdown()
+            if output:
+                with open(output, "w", encoding="utf-8") as f:
+                    f.write(md_str)
+                console.print(f"[bold green]Saved markdown benchmark report to {output}[/bold green]")
+            else:
+                print(md_str)
+        else:
+            _render()
+            if output:
+                if output.endswith(".json"):
+                    with open(output, "w", encoding="utf-8") as f:
+                        f.write(report.model_dump_json(indent=2))
+                else:
+                    with open(output, "w", encoding="utf-8") as f:
+                        f.write(_generate_markdown())
+                console.print(f"[bold green]Saved benchmark report to {output}[/bold green]")
+
+    asyncio.run(_run_benchmark())
 
 
 @app.command()
