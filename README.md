@@ -5,68 +5,67 @@
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![Downloads](https://static.pepy.tech/badge/model-router-cli)](https://pepy.tech/project/model-router-cli)
 
-Intelligent, explainable, cost- and latency-aware LLM request routing platform and AI Traffic Control Room.
+Intelligent, explainable, cost- and latency-aware LLM request routing platform, AI Traffic Control Room, and drop-in SDKs.
 
 ---
 
-
 ## The Real-World Problem
-Companies building AI applications face ballooning API costs, rate limits, and latency spikes. They want to use large models (like GPT-4 or Claude 3.5 Sonnet) for complex reasoning, but cheaper/faster models (like Llama 3 or Haiku) for simple tasks. Manually writing logic to route these requests is brittle and hard to maintain.
+Companies building AI applications face ballooning API costs, rate limits, and latency spikes. They want to use large models (like GPT-4o, Claude 3.5 Sonnet, or JEV reasoning models) for complex reasoning, but cheaper/faster models (like Llama 3 or Haiku) for simple tasks. Manually writing logic to route these requests is brittle and hard to maintain.
 
 ## Why it's Unique (The "Edge")
 - **The "Traffic Control Room":** A stunning frontend UI that makes routing decisions transparent and explainable. You don't just route; you see *why* a request went to a specific model.
 - **100% Local & Self-Hosted:** No data leaves the user's infrastructure.
 - **A/B Policy Experimentation:** Built-in tools to test different routing policies (e.g., "lowest cost" vs "balanced") and see projected savings.
-- **Dual-Mode Analyzer:** Uses both fast heuristics (regex/length) and LLM-based complexity scoring to route requests efficiently.
-- **Production-Ready Scalability:** Database-agnostic (SQLite for local dev, PostgreSQL for production) with Redis Pub/Sub powering the real-time SSE traffic telemetry across distributed worker nodes.
+- **Triple-Mode Analyzer:** Fast deterministic heuristics (<3ms), semantic ONNX embedding classification, and LLM-based continuous complexity scoring.
+- **Thompson Sampling RL Auto-Tuning:** Contextual multi-armed bandit automatically adjusts model quality scores online based on real-time latency, throughput, and error rates.
+- **Production-Ready Scalability:** Database-agnostic (SQLite for local dev, PostgreSQL for production) with Redis Pub/Sub powering real-time SSE traffic telemetry across distributed worker nodes.
 - **Resilient Execution:** Built-in sliding-window circuit breaker dynamically bypasses failing upstream providers to prevent cascading latency spikes.
-
-## Overview
-
-Model Router intercepts incoming AI requests, analyzes their task type and continuous complexity, evaluates available models against a configurable multi-criteria scoring objective, selects the optimal candidate, and dispatches the request with automatic fallback handling and budget guards.
-
-The platform is designed local-first, allowing full local development and testing using Mock models or local Ollama instances without requiring paid external API keys.
+- **Enterprise Observability:** Standardized OpenTelemetry distributed tracing and native Prometheus `/metrics` exposition.
 
 ---
 
 ## Key Features
 
-- **Dual-Mode Request Analyzer**: Deterministic heuristics (<3ms latency overhead) for 12 task types, continuous complexity scoring (0.05 to 0.99), and requirement detection, plus an optional LLM classifier mode.
-- **Explainable Routing Engine**: Multi-criteria weighted scoring across Quality, Cost Efficiency, Speed, Capabilities, and Reliability with transparent decision factor reports and candidate rejection logs.
-- **Provider Abstraction**: Decoupled adapters for Mock (simulation), Ollama (local), OpenAI, Anthropic, and Google Gemini.
-- **Resilience and Tiered Fallback**: Automated retry classification for transient errors (timeouts, HTTP 429, 503) and tiered fallback to local/mock alternatives.
-- **Budget Control Guards**: Real-time spend tracking with automated threshold interventions (80% cost optimization, 95% local-only saver, 100% block).
-- **Traffic Control Room UI**: Real-time operational interface with seamless dark/light mode switching, featuring live topology graphs, playground inspector, SSE live request stream, telemetry export as CSV/JSON, visual rules builder, and cost savings simulator.
-- **Developer CLI**: Terminal diagnostics (`doctor`), routing dry-run (`route`), execution (`run`), model catalog (`models`), and analytics (`analytics`).
+- **Triple-Mode Request Analyzer**: Deterministic heuristics (<3ms latency overhead), ONNX dense semantic embedding similarity, and continuous complexity scoring (0.05 to 0.99).
+- **Explainable Multi-Criteria Routing Engine**: Normalized 0-100 scoring across Quality, Cost Efficiency, Speed, Capabilities, and Reliability with transparent decision factor reports and candidate rejection logs.
+- **Thompson Sampling RL Auto-Tuner**: Online Beta-distribution bandit exploration and exploitation that dynamically refines candidate priors based on real-world feedback.
+- **Multi-Tenant Workspaces & Rate Limiting**: Workspace tenant isolation, cryptographically hashed API keys (`mr_live_...`), and sliding-window token-bucket rate limiters.
+- **Provider Abstraction**: Decoupled adapters for Mock (simulation), Ollama (local), OpenAI, Anthropic, Together AI, DeepSeek, Groq, and Google Gemini.
+- **Resilience and Tiered Fallback**: Automated retry classification for transient errors (timeouts, HTTP 429, 503) and tiered fallback to local/mock alternatives with circuit breaker protection.
+- **Automated Benchmarking & Pareto Evaluator**: Run GSM8K, HumanEval, and MMLU benchmarks via CLI and compute 3D Cost-Accuracy Pareto frontiers with ASCII curve visualizers.
+- **OpenTelemetry & Prometheus Observability**: Distributed trace span propagation across routing stages, plus Prometheus metrics scraping at `/metrics`.
+- **Traffic Control Room UI**: Real-time operational interface with dark/light mode, live topology graphs, playground inspector, SSE live request stream, telemetry export as CSV/JSON, visual rules builder, and cost savings simulator.
+- **Drop-In Client SDKs**: Native Python (`modelrouter-sdk`) and TypeScript/JavaScript (`@picadolabs/modelrouter-sdk`) libraries for 1-line OpenAI client replacement.
 
 ---
 
 ## Architecture & Workflow
 
 ```text
-[ Client / SDK / Typer CLI ]
-           │
-           ▼
-[ FastAPI Gateway (Port 8000) ]
-           │
-  ┌────────┴──────────────────────────┐
-  │ 1. Request Analyzer (<3ms)        │  --> Task Type, Complexity, Context Size
-  │ 2. Priority Rules Evaluation      │  --> Conditional Overrides
-  │ 3. Candidate Hard Pruning         │  --> Filter Ineligible Models (Context / Caps)
-  │ 4. Multi-Criteria Scoring         │  --> Normalized 0-100 Score across 5 Dimensions
-  │ 5. Decision Factor Generator      │  --> Itemized Explainability Breakdown
-  └────────┬──────────────────────────┘
-           │
-           ▼
-[ Fallback Supervisor & Provider Layer ]
-  ├── Local: Ollama Provider (qwen2.5-coder, llama3.2, deepseek-r1)
-  ├── Simulated: In-Memory Mock Provider (Zero Cost)
-  └── Cloud: OpenAI, Anthropic, Google Gemini (Optional)
-           │
-           ▼
-[ Storage & Observability Engine ]
-  ├── Asynchronous SQLite WAL Database (`model_router.db`)
-  └── Server-Sent Events (SSE) Stream -> React Control Room (Port 5173)
+[ Client Application / SDK / Typer CLI ]
+                   │
+                   ▼
+       [ FastAPI Gateway (Port 8000) ]
+                   │
+  ┌────────────────┴──────────────────────────┐
+  │ 1. Workspace Auth & Token Bucket Limiter  │  --> Bearer mr_live_...
+  │ 2. Semantic Embedding & Complexity Score  │  --> Task Type (<3ms overhead)
+  │ 3. Priority Rules & Pruning Filter        │  --> Context size & Capabilities
+  │ 4. Multi-Criteria Scoring & RL Tuner      │  --> Normalized Multi-Dimension Score
+  │ 5. Decision Factor & Explainability Log   │  --> Itemized Reason Report
+  └────────────────┬──────────────────────────┘
+                   │
+                   ▼
+  [ Circuit Breaker & Provider Execution ]
+    ├── Local: Ollama Provider (qwen2.5-coder, llama3.2, deepseek-r1)
+    ├── Frontier: OpenAI, Anthropic, Gemini, DeepSeek, Together, Groq
+    └── Simulated: In-Memory Mock Provider (Zero Cost)
+                   │
+                   ▼
+  [ Observability & Storage Engine ]
+    ├── OpenTelemetry Spans & Prometheus `/metrics`
+    ├── Asynchronous SQLite WAL / PostgreSQL Database
+    └── Redis Pub/Sub -> Real-Time SSE Stream -> React Control Room (Port 5173)
 ```
 
 ---
@@ -82,6 +81,8 @@ The platform is designed local-first, allowing full local development and testin
 - Python 3.10, 3.11, or 3.12
 - Node.js 18+ and npm
 - (Optional) [Ollama](https://ollama.com/) for local model inference
+
+---
 
 ## 📦 Quick Installation (via PyPI)
 
@@ -102,8 +103,8 @@ modelrouter ui --open-browser
 # Route a prompt and inspect the explainability decision (Dry Run)
 modelrouter route "Write an optimized async task worker in Python"
 
-# Route and execute inference through the optimal provider
-modelrouter run "Explain the difference between zero-shot and few-shot prompting"
+# Run automated GSM8K benchmark and evaluate Cost-Accuracy Pareto Frontier
+modelrouter benchmark --dataset gsm8k --limit 10
 ```
 
 ---
@@ -112,8 +113,8 @@ modelrouter run "Explain the difference between zero-shot and few-shot prompting
 
 ### 1. Clone the Repository
 ```bash
-git clone https://github.com/PicadoLabs/AI-Model-Router.git
-cd AI-Model-Router
+git clone https://github.com/PicadoLabs/ai-model-router.git
+cd ai-model-router
 ```
 
 ### 2. Backend Installation
@@ -137,55 +138,6 @@ cp .env.example .env
 cd frontend
 npm install
 cd ..
-```
-
----
-
-## Configuration & Environment Variables
-
-Configuration is loaded via Pydantic Settings from the `.env` file:
-
-| Variable | Default | Description |
-| :--- | :--- | :--- |
-| `APP_ENV` | `development` | Application environment (`development`, `production`, `test`) |
-| `PORT` | `8000` | FastAPI server port |
-| `HOST` | `0.0.0.0` | FastAPI server host |
-| `DATABASE_URL` | `sqlite+aiosqlite:///./model_router.db` | SQLAlchemy database connection URI |
-| `ROUTER_ANALYZER` | `rules` | Default analyzer mode (`rules` for heuristics, `llm` for model classifier) |
-| `DEFAULT_ROUTING_POLICY` | `balanced` | Default routing weights (`balanced`, `lowest_cost`, `lowest_latency`, `highest_quality`) |
-| `BASELINE_MODEL_ID` | `mock-power` | Reference model ID for calculating baseline cost savings |
-| `DEFAULT_PROVIDER` | `mock` | Default execution provider (`mock`, `ollama`) |
-| `OLLAMA_BASE_URL` | `http://localhost:11434` | Ollama HTTP endpoint |
-| `OPENAI_API_KEY` | *(empty)* | Optional OpenAI API Key |
-| `ANTHROPIC_API_KEY` | *(empty)* | Optional Anthropic API Key |
-| `GEMINI_API_KEY` | *(empty)* | Optional Google Gemini API Key |
-| `DAILY_BUDGET` | `10.00` | Daily spend limit in USD |
-| `MONTHLY_BUDGET` | `100.00` | Monthly spend limit in USD |
-| `MAX_RETRIES` | `2` | Maximum retries before triggering cascading fallback |
-| `PROVIDER_TIMEOUT_SECONDS` | `30.0` | Provider HTTP timeout in seconds |
-
----
-
-## Quickstart
-
-### 1. Run System Diagnostics
-```bash
-python backend/app/cli/main.py doctor
-```
-
-### 2. Start the Backend API Server
-```bash
-python backend/main.py
-# API server running at http://127.0.0.1:8000
-# Interactive API docs available at http://127.0.0.1:8000/docs
-```
-
-### 3. Start the Control Room UI
-In a separate terminal:
-```bash
-cd frontend
-npm run dev
-# Access UI at http://localhost:5173
 ```
 
 ---
@@ -258,8 +210,7 @@ for await (const chunk of stream) {
 
 ## CLI Usage
 
-The built-in Typer CLI provides terminal commands for inspection, diagnostics, and testing (use `modelrouter` if installed via pip, or `python backend/app/cli/main.py` from source).
-You can append `--json` or `-j` to most commands to output raw, pipeable JSON instead of Rich formatted tables:
+The built-in Typer CLI provides terminal commands for inspection, diagnostics, benchmarking, and testing:
 
 ```bash
 # Launch the AI Traffic Control Room Web UI and API Gateway
@@ -273,6 +224,9 @@ modelrouter route "Write a Python function to parse JSON"
 
 # Route and execute a query through the selected model
 modelrouter run "Debug this distributed async deadlock in worker pool"
+
+# Run automated Pareto benchmark suite (GSM8K, HumanEval, MMLU)
+modelrouter benchmark --dataset gsm8k --limit 10 --format table
 
 # List all registered models in the catalog
 modelrouter models
@@ -299,17 +253,22 @@ curl -X POST http://127.0.0.1:8000/api/route \
 ```bash
 curl -X POST http://127.0.0.1:8000/api/generate \
   -H "Content-Type: application/json" \
-  -d '{"prompt": "Explain the difference between TCP and UDP", "policy": "lowest_cost"}'
+  -d '{"prompt": "Explain the difference between TCP and UDP", "policy": "cost_optimized"}'
 ```
 
-### 3. Fetch Registered Models (`GET /api/models`)
+### 3. Prometheus Metrics Endpoint (`GET /metrics`)
 ```bash
-curl http://127.0.0.1:8000/api/models
+curl http://127.0.0.1:8000/metrics
 ```
 
-### 4. Export Historical Traffic (`GET /api/traffic/export`)
-Export all persisted traffic records for auditing, accounting, or latency analysis:
+### 4. Run Automated Pareto Benchmark (`POST /api/benchmarks/run`)
+```bash
+curl -X POST http://127.0.0.1:8000/api/benchmarks/run \
+  -H "Content-Type: application/json" \
+  -d '{"dataset": "gsm8k", "limit": 10, "baseline_model": "gpt-4o"}'
+```
 
+### 5. Export Historical Traffic (`GET /api/traffic/export`)
 ```bash
 # Export as JSON
 curl -OJ "http://127.0.0.1:8000/api/traffic/export?format=json"
@@ -318,27 +277,18 @@ curl -OJ "http://127.0.0.1:8000/api/traffic/export?format=json"
 curl -OJ "http://127.0.0.1:8000/api/traffic/export?format=csv"
 ```
 
-Each export includes the timestamp, request ID, prompt preview, task type, complexity, selected model, input/output/total tokens, cost saved, and total latency. The `format` query parameter accepts only `csv` or `json`.
-
-The same export is available in the frontend under **Traffic**. Select `CSV` or `JSON` beside **Export Telemetry**, then click the button to download the complete historical traffic dataset.
-
 ---
 
 ## Running Tests
 
-The test suite includes 18 automated unit, integration, and end-to-end tests covering prompt heuristics, candidate pruning, scoring weights, provider execution, error fallbacks, REST endpoints, and CSV/JSON traffic exports:
+The test suite includes **63 automated unit, integration, and end-to-end tests** covering semantic embedding classification, Thompson sampling RL auto-tuning, OpenTelemetry & Prometheus metrics, benchmarking Pareto evaluator, SDK clients, and circuit breakers:
 
 ```bash
-# Run the backend test suite from the repository root
-pytest backend/tests
+# Run the complete test suite from repository root
+pytest
 
-# Or run it from the backend directory
-cd backend
-python -m pytest tests
-
-# Run frontend production build test
-cd frontend
-npm run build
+# Run tests with detailed coverage
+pytest --cov=app
 ```
 
 ---
@@ -346,62 +296,41 @@ npm run build
 ## Project Structure
 
 ```text
-AI-Model-Router/
+ai-model-router/
 ├── .github/
-│   ├── ISSUE_TEMPLATE/
-│   │   ├── bug_report.md
-│   │   └── feature_request.md
-│   ├── pull_request_template.md
-│   └── workflows/
-│       └── ci.yml
+│   └── workflows/ci.yml     # Continuous integration & test workflow
 ├── backend/
 │   ├── app/
 │   │   ├── analytics/       # Cost savings and aggregate analytics service
-│   │   ├── analyzer/        # Dual-mode request analyzer (heuristics & LLM)
+│   │   ├── analyzer/        # Triple-mode request analyzer (heuristics, semantic ONNX, LLM)
 │   │   ├── api/             # FastAPI REST endpoints and request handlers
+│   │   ├── auth/            # Multi-tenant API keys & token bucket rate limiter
 │   │   ├── budgets/         # Spend tracking and automated threshold manager
-│   │   ├── cli/             # Typer CLI application (doctor, route, run, etc.)
+│   │   ├── cli/             # Typer CLI application (doctor, route, benchmark, ui)
 │   │   ├── config/          # Pydantic Settings environment configuration
-│   │   ├── experiments/     # A/B policy experimentation service
-│   │   ├── fallback/        # Error classifier and tiered fallback supervisor
+│   │   ├── experiments/     # Benchmarking suite & Cost-Accuracy Pareto evaluator
+│   │   ├── fallback/        # Error classifier, circuit breaker & tiered fallback supervisor
 │   │   ├── models/          # Pydantic schemas (RequestAnalysis, RoutingDecision)
-│   │   ├── observability/   # Redacted structured JSON event logger
-│   │   ├── providers/       # Decoupled adapters (Mock, Ollama, Cloud)
-│   │   ├── router/          # Core scoring matrix, pruner, and rules engine
+│   │   ├── observability/   # Prometheus metrics exporter & OpenTelemetry tracer
+│   │   ├── providers/       # Adapters (Mock, Ollama, OpenAI, Anthropic, Gemini, DeepSeek, Groq)
+│   │   ├── router/          # Scoring matrix, pruner, rules engine & Thompson Sampling RL
 │   │   └── storage/         # SQLAlchemy models and SQLite async database
-│   ├── tests/               # Pytest test suite (23 passing tests)
-│   ├── main.py              # FastAPI application entrypoint
-│   └── requirements.txt     # Python backend dependencies
+│   ├── tests/               # Pytest suite (63 passing tests)
+│   └── main.py              # FastAPI application entrypoint
 ├── frontend/
 │   ├── src/
 │   │   ├── components/      # UI components (Navbar, RoutingMap topology graph)
 │   │   ├── pages/           # Control Room pages (Dashboard, Playground, Rules, etc.)
 │   │   └── types/           # TypeScript data interfaces
 │   └── package.json         # Node.js dependencies
-├── .env.example             # Configuration template
-├── .gitignore               # Git exclusions
-├── CODE_OF_CONDUCT.md       # Contributor Covenant Code of Conduct
-├── CONTRIBUTING.md          # Contribution guidelines and workflow
-├── LICENSE                  # Apache 2.0 License
-├── milestone.md             # Development milestone roadmap & issue tracker
-├── README.md                # Project documentation
+├── sdk/
+│   ├── python/              # Official Python SDK (modelrouter-sdk)
+│   └── typescript/          # Official TypeScript SDK (@picadolabs/modelrouter-sdk)
+├── examples/                # Standalone SDK quickstart scripts
+├── pyproject.toml           # Project build metadata
 ├── requirements.txt         # Root Python dependencies
-└── SECURITY.md              # Vulnerability reporting and security policy
+└── README.md                # Project documentation
 ```
-
----
-
-## Contributing
-
-We welcome contributions from the community. Please review [CONTRIBUTING.md](CONTRIBUTING.md) for details on our development setup, coding standards, branch conventions, and pull request process.
-
-Please note that this project is released with a [Code of Conduct](CODE_OF_CONDUCT.md). By participating in this project you agree to abide by its terms.
-
----
-
-## Security
-
-Security and privacy are core to Model Router. For vulnerability reporting procedures and our zero-secret-exposure policy, please refer to [SECURITY.md](SECURITY.md).
 
 ---
 
