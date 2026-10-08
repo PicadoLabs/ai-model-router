@@ -28,6 +28,7 @@ from app.storage.models import (
 )
 from app.auth.security import get_auth_context, AuthContext, generate_api_key, hash_api_key
 from app.auth.rate_limiter import rate_limiter
+from app.router.thompson_sampling import thompson_bandit
 from app.models.schemas import (
     ModelMetadata,
     RequestAnalysis,
@@ -664,7 +665,7 @@ async def get_decision_details(decision_id_or_request_id: str, db: AsyncSession 
     }
 
 
-# Feedback
+# Feedback & Thompson Sampling RL Auto-Tuning
 @router.post("/api/feedback")
 async def submit_feedback(req: FeedbackSubmitRequest, db: AsyncSession = Depends(get_db)):
     res = await db.execute(select(RequestRecord).filter_by(request_id=req.request_id))
@@ -682,7 +683,22 @@ async def submit_feedback(req: FeedbackSubmitRequest, db: AsyncSession = Depends
     )
     db.add(feedback)
     await db.commit()
+
+    # Update Thompson Sampling Bayesian posterior
+    await thompson_bandit.record_feedback(
+        task_type=request_rec.task_type,
+        model_id=request_rec.selected_model,
+        rating=feedback.rating,
+        db=db,
+    )
+
     return {"status": "success", "feedback_id": feedback.id}
+
+
+@router.get("/api/rl/stats")
+async def get_rl_bandit_stats(task_type: Optional[str] = None, db: AsyncSession = Depends(get_db)):
+    """Returns learned Bayesian posterior reward distributions and empirical win rates."""
+    return await thompson_bandit.get_stats(db=db, task_type=task_type)
 
 
 # Analytics Endpoints
