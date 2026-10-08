@@ -14,6 +14,8 @@ from app.storage.database import init_db, AsyncSessionLocal
 from app.storage.models import RequestRecord
 from app.api.routes import router as api_router
 
+from app.storage.redis_client import close_redis
+
 settings = get_settings()
 
 
@@ -22,6 +24,11 @@ async def lifespan(app: FastAPI):
     # Initialize SQLite database and seed defaults
     await init_db()
     yield
+    # Clean teardown on shutdown
+    try:
+        await close_redis()
+    except Exception:
+        pass
 
 
 app = FastAPI(
@@ -31,10 +38,10 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# CORS configuration
+# CORS configuration (compliant with credentials)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origin_regex=r"http://(localhost|127\.0\.0\.1)(:\d+)?",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

@@ -1,4 +1,4 @@
-﻿export type TaskType = 
+export type TaskType = 
   | 'GENERAL_QA'
   | 'CODING'
   | 'DEBUGGING'
@@ -29,6 +29,7 @@ export interface RequestAnalysis {
   quality_requirement: PriorityLevel;
   keywords_detected: string[];
   analyzer_used: string;
+  semantic_similarity?: number;
 }
 
 export interface CandidateScore {
@@ -64,6 +65,8 @@ export interface RoutingDecision {
   estimated_latency_ms: number;
   rule_applied?: string;
   timestamp: string;
+  trace_id?: string;
+  exploration_active?: boolean;
 }
 
 export interface ProviderResponse {
@@ -121,6 +124,8 @@ export interface TrafficItem {
   status: string;
   total_latency_ms: number;
   estimated_cost: number;
+  input_tokens?: number;
+  output_tokens?: number;
 }
 
 export interface SystemAnalytics {
@@ -155,4 +160,51 @@ export interface RoutingRule {
   condition_value: string;
   action_type: string;
   action_target: string;
+}
+
+export interface Workspace {
+  id: string;
+  name: string;
+  default_policy: string;
+  rate_limit_rpm: number;
+  created_at: string;
+  is_active: boolean;
+}
+
+export interface ApiKeyItem {
+  id: string;
+  name: string;
+  key_prefix: string;
+  workspace_id: string;
+  rate_limit_rpm: number;
+  created_at: string;
+  is_active: boolean;
+  key?: string; // Only returned on creation
+}
+
+export interface BenchmarkCandidate {
+  name: string;
+  target_type: string;
+  total_samples: number;
+  correct_samples: number;
+  accuracy_percent: number;
+  avg_latency_ms: number;
+  p95_latency_ms: number;
+  avg_cost_per_1k_usd: number;
+  total_cost_usd: number;
+  accuracy_retention_percent: number;
+  cost_savings_percent: number;
+  latency_reduction_percent: number;
+  is_pareto_optimal: boolean;
+  model_breakdown?: Record<string, number>;
+}
+
+export interface BenchmarkReport {
+  dataset_name: string;
+  sample_count: number;
+  baseline_model: string;
+  candidates: BenchmarkCandidate[];
+  pareto_frontier: string[];
+  generated_at: string;
+  ascii_graph: string;
 }

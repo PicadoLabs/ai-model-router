@@ -1,0 +1,32 @@
+name: Feature Request
+description: Suggest an idea or architectural improvement for AI Model Router
+title: '[Feature]: '
+labels: ['enhancement', 'good first issue']
+assignees: ''
+
+body:
+  - type: markdown
+    attributes:
+      value: Suggest an enhancement or new capability for AI Model Router.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem Statement
+      description: Is your feature request related to a problem or limitation?
+      placeholder: I'm always frustrated when...
+    validations:
+      required: true
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed Solution
+      description: Describe the solution or design you would like to see implemented.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternative Solutions Considered
+      description: Describe any alternative solutions or features you've considered.
+    validations:
+      required: false

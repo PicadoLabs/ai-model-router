@@ -13,74 +13,74 @@
   --color-text-muted: var(--theme-text-muted);
   --color-text-dim: var(--theme-text-dim);
 
-  --color-accent-primary: #3894FF;
-  --color-accent-secondary: #F59E0B;
-  --color-accent-success: #10B981;
-  --color-accent-error: #EF4444;
-  --color-accent-purple: #8B5CF6;
-  --color-accent-cyan: #06B6D4;
+  --color-accent-primary: var(--theme-accent-primary);
+  --color-accent-secondary: #E5A64E;
+  --color-accent-success: #34A47C;
+  --color-accent-error: #D9534F;
+  --color-accent-purple: #8A7AE8;
+  --color-accent-cyan: #44A8B3;
 
-  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  --font-sans: "Geist Variable", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
 }
 
+/* ─── Light Theme (Magpie Light) ─── */
 :root {
-  --theme-bg-primary: #F8FAFC;
-  --theme-bg-secondary: #F1F5F9;
+  --theme-bg-primary: #F5F7FA;
+  --theme-bg-secondary: #EDF0F5;
   --theme-bg-card: #FFFFFF;
-  --theme-bg-card-hover: #F8FAFC;
-  --theme-border-subtle: #E2E8F0;
-  --theme-border-active: #CBD5E1;
-  --theme-text-primary: #0F172A;
-  --theme-text-muted: #475569;
-  --theme-text-dim: #64748B;
+  --theme-bg-card-hover: #F8FAFB;
+  --theme-border-subtle: #D8DEE8;
+  --theme-border-active: #B4BDC9;
+  --theme-text-primary: #1A2233;
+  --theme-text-muted: #5A6A7E;
+  --theme-text-dim: #8393A7;
+  --theme-accent-primary: #3570D4;
 }
 
+/* ─── Dark Theme (Magpie Dark) ─── */
 .dark {
-  --theme-bg-primary: #07090C;
-  --theme-bg-secondary: #0D1117;
-  --theme-bg-card: #121820;
-  --theme-bg-card-hover: #17202B;
-  --theme-border-subtle: #1F2833;
-  --theme-border-active: #324050;
-  --theme-text-primary: #F0F4F8;
+  --theme-bg-primary: #0E1219;
+  --theme-bg-secondary: #141B25;
+  --theme-bg-card: #1A2230;
+  --theme-bg-card-hover: #1F2B3B;
+  --theme-border-subtle: #243040;
+  --theme-border-active: #324358;
+  --theme-text-primary: #E2E8F0;
   --theme-text-muted: #8B98A5;
-  --theme-text-dim: #546270;
+  --theme-text-dim: #5A6A7E;
+  --theme-accent-primary: #3B7EE0;
 }
 
 body {
   background-color: var(--theme-bg-primary);
   color: var(--theme-text-primary);
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: "Geist Variable", "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
   overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-/* Custom glow borders and glass effects */
+/* ─── Surface Cards ─── */
 .glass-panel {
-  background: color-mix(in srgb, var(--theme-bg-card) 75%, transparent);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid color-mix(in srgb, var(--theme-border-active) 60%, transparent);
+  background: var(--theme-bg-card);
+  border: 1px solid var(--theme-border-subtle);
 }
 
 .glass-panel-hover:hover {
-  border-color: rgba(56, 148, 255, 0.5);
-  box-shadow: 0 0 25px rgba(56, 148, 255, 0.08);
+  border-color: var(--theme-accent-primary);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--theme-accent-primary) 15%, transparent);
 }
 
-/* Scanline and grid overlays */
+/* ─── Grid Background ─── */
 .grid-bg {
   background-size: 28px 28px;
-  background-image: 
-    linear-gradient(to right, color-mix(in srgb, var(--theme-border-subtle) 40%, transparent) 1px, transparent 1px),
-    linear-gradient(to bottom, color-mix(in srgb, var(--theme-border-subtle) 40%, transparent) 1px, transparent 1px);
+  background-image:
+    linear-gradient(to right, color-mix(in srgb, var(--theme-border-subtle) 35%, transparent) 1px, transparent 1px),
+    linear-gradient(to bottom, color-mix(in srgb, var(--theme-border-subtle) 35%, transparent) 1px, transparent 1px);
 }
 
-.radar-glow {
-  box-shadow: 0 0 50px -10px rgba(56, 148, 255, 0.25);
-}
-
-/* Smooth animations for particles and pulses */
+/* ─── Animations ─── */
 @keyframes flowBeam {
   0% { stroke-dashoffset: 100; opacity: 0.2; }
   50% { opacity: 1; }
@@ -94,14 +94,14 @@ body {
 
 @keyframes pulseGlow {
   0%, 100% { opacity: 0.4; transform: scale(1); }
-  50% { opacity: 1.0; transform: scale(1.04); }
+  50% { opacity: 1.0; transform: scale(1.03); }
 }
 
 .animate-pulse-glow {
   animation: pulseGlow 2.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
 
-/* Scrollbars */
+/* ─── Scrollbars ─── */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -115,4 +115,13 @@ body {
 }
 ::-webkit-scrollbar-thumb:hover {
   background: var(--theme-border-active);
+}
+
+/* ─── No-scrollbar utility ─── */
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* ─── Selection ─── */
+::selection {
+  background: color-mix(in srgb, var(--theme-accent-primary) 25%, transparent);
 }
