@@ -125,9 +125,9 @@ class RequestRecord(Base):
     request_id = Column(String(100), primary_key=True)
     workspace_id = Column(String(100), default="default", index=True)
     api_key_id = Column(String(100), nullable=True)
-    timestamp = Column(DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc))
+    timestamp = Column(DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc), index=True)
     prompt = Column(Text, nullable=False)
-    task_type = Column(String(50), nullable=False)
+    task_type = Column(String(50), nullable=False, index=True)
     complexity = Column(Float, default=0.5)
     context_size = Column(Integer, default=0)
     reasoning_required = Column(Boolean, default=False)
@@ -159,8 +159,8 @@ class RoutingDecisionRecord(Base):
     __tablename__ = "routing_decisions"
 
     decision_id = Column(String(100), primary_key=True)
-    request_id = Column(String(100), ForeignKey("requests.request_id"), nullable=False)
-    timestamp = Column(DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc))
+    request_id = Column(String(100), ForeignKey("requests.request_id"), nullable=False, index=True)
+    timestamp = Column(DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc), index=True)
     
     selected_model = Column(String(100), nullable=False)
     confidence = Column(Float, default=0.9)
