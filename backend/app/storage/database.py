@@ -1,4 +1,5 @@
 from typing import AsyncGenerator
+from sqlalchemy import event
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
 from app.config.settings import get_settings
 from app.storage.models import (
@@ -13,6 +14,7 @@ from app.storage.models import (
 )
 
 settings = get_settings()
+SQLITE_BUSY_TIMEOUT_MS = 5000
 
 if settings.DATABASE_URL.startswith("sqlite"):
     engine = create_async_engine(
@@ -20,6 +22,15 @@ if settings.DATABASE_URL.startswith("sqlite"):
         echo=False, 
         connect_args={"check_same_thread": False}
     )
+
+    @event.listens_for(engine.sync_engine, "connect")
+    def configure_sqlite_connection(dbapi_connection, connection_record):
+        cursor = dbapi_connection.cursor()
+        try:
+            cursor.execute(f"PRAGMA busy_timeout={SQLITE_BUSY_TIMEOUT_MS}")
+            cursor.execute("PRAGMA journal_mode=WAL")
+        finally:
+            cursor.close()
 else:
     engine = create_async_engine(
         settings.DATABASE_URL, 
