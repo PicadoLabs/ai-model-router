@@ -1,5 +1,6 @@
 from functools import lru_cache
-from typing import Optional
+from typing import List, Optional
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -8,6 +9,8 @@ class Settings(BaseSettings):
     DEBUG: bool = True
     PORT: int = 8000
     HOST: str = "0.0.0.0"
+
+    ALLOWED_ORIGINS: List[str] = Field(default_factory=list)
 
     DATABASE_URL: str = "sqlite+aiosqlite:///./model_router.db"
     REDIS_URL: Optional[str] = None

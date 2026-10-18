@@ -9,6 +9,8 @@ from fastapi.responses import FileResponse
 from sse_starlette.sse import EventSourceResponse
 from sqlalchemy import select, desc
 
+from typing import List, Optional
+
 from app.config.settings import get_settings
 from app.storage.database import init_db, AsyncSessionLocal
 from app.storage.models import RequestRecord
@@ -38,14 +40,24 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+def setup_cors(app: FastAPI, allowed_origins: Optional[List[str]] = None) -> None:
+    """
+    Configure CORS middleware on the FastAPI application with credentialed support.
+    Permits specified allowed_origins as well as local development origins via regex.
+    """
+    origins = allowed_origins if allowed_origins is not None else settings.ALLOWED_ORIGINS
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=origins,
+        allow_origin_regex=r"http://(localhost|127\.0\.0\.1)(:\d+)?",
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+
+
 # CORS configuration (compliant with credentials)
-app.add_middleware(
-    CORSMiddleware,
-    allow_origin_regex=r"http://(localhost|127\.0\.0\.1)(:\d+)?",
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+setup_cors(app)
 
 app.include_router(api_router)
 

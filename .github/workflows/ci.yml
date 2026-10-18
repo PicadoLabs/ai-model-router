@@ -27,5 +27,5 @@ jobs:
         if [ -d frontend ]; then cd frontend && npm install; fi
     - name: Run Tests
       run: |
-        pytest tests/ || pytest backend/tests/ || echo "No pytest found"
+        pytest
         if [ -d frontend ]; then cd frontend && npm run build --if-present; fi
