@@ -211,4 +211,3 @@ def test_get_queued_ids(broadcaster: InMemoryTrafficBroadcaster):
     assert broadcaster.get_queued_ids(queue) == {"req-1", "req-2"}
     # Queue is unconsumed
     assert queue.qsize() == 3
-
