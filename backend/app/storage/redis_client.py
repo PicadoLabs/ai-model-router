@@ -11,6 +11,9 @@ _redis_client: Optional[aioredis.Redis] = None
 
 async def init_redis():
     global _redis_client
+    settings = get_settings()
+    if _redis_client is not None:
+        await close_redis()
     if settings.REDIS_URL:
         try:
             _redis_client = aioredis.from_url(settings.REDIS_URL, decode_responses=True)
@@ -21,11 +24,17 @@ async def init_redis():
             _redis_client = None
     else:
         logger.info("REDIS_URL not set. Running without Redis Pub/Sub.")
+        _redis_client = None
 
 async def close_redis():
     global _redis_client
     if _redis_client:
-        await _redis_client.close()
+        try:
+            await _redis_client.close()
+        except Exception as e:
+            logger.warning(f"Error closing Redis client: {e}")
+        finally:
+            _redis_client = None
 
 def get_redis() -> Optional[aioredis.Redis]:
     return _redis_client

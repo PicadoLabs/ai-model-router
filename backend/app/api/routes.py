@@ -3,6 +3,10 @@ import time
 import asyncio
 import csv
 import io
+import json
+import datetime
+import logging
+from collections import deque
 from typing import List, Optional, Dict, Any
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from fastapi.responses import JSONResponse, StreamingResponse
@@ -11,7 +15,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, desc
 
-from app.storage.database import get_db
+from app.storage.database import get_db, AsyncSessionLocal
 from app.storage.redis_client import get_redis
 from app.storage.models import (
     ModelRecord,
@@ -47,6 +51,9 @@ from app.analytics.service import get_system_analytics, calculate_cost_savings
 from app.providers.registry import provider_registry
 from app.fallback.circuit_breaker import circuit_breaker
 from app.config.settings import get_settings
+from app.storage.events_channel import get_broadcaster
+
+logger = logging.getLogger("model_router.routes")
 
 router = APIRouter()
 settings = get_settings()
@@ -220,6 +227,45 @@ async def api_route_prompt(
     }
 
 
+def build_traffic_event_payload(req_record: RequestRecord) -> Dict[str, Any]:
+    """
+    Construct the SSE traffic event payload from an in-memory RequestRecord.
+    Preserves exact schema and serialization expected by frontend and server.py.
+    """
+    ts = getattr(req_record, "timestamp", None)
+    if ts and hasattr(ts, "isoformat"):
+        timestamp_str = ts.isoformat()
+    elif ts:
+        timestamp_str = str(ts)
+    else:
+        timestamp_str = datetime.datetime.now(datetime.timezone.utc).isoformat()
+
+    return {
+        "request_id": req_record.request_id,
+        "timestamp": timestamp_str,
+        "prompt": req_record.prompt,
+        "task_type": req_record.task_type,
+        "complexity": req_record.complexity,
+        "selected_model": req_record.selected_model,
+        "provider": req_record.provider,
+        "status": req_record.status,
+        "total_latency_ms": req_record.total_latency_ms,
+        "estimated_cost": req_record.estimated_cost,
+    }
+
+
+def _publish_in_memory_traffic_event(req_record: RequestRecord) -> None:
+    """
+    Publish routing decision event payload to in-memory broadcaster after successful DB commit.
+    Non-blocking, zero additional DB queries.
+    """
+    try:
+        payload = build_traffic_event_payload(req_record)
+        get_broadcaster().publish_nowait(payload)
+    except Exception as exc:
+        logger.warning("Failed to publish traffic event to in-memory broadcaster: %s", exc)
+
+
 @router.post("/api/generate", response_model=Dict[str, Any])
 async def api_generate_response(
     req: GenerateRequest, 
@@ -386,6 +432,9 @@ async def api_generate_response(
                 stream_db.add(resp_record)
                 await stream_db.commit()
 
+                # Post-commit: publish to in-memory broadcaster for live SSE clients
+                _publish_in_memory_traffic_event(req_record)
+
                 log_router_event(
                     event_name="request_completed_stream",
                     request_id=req_id,
@@ -484,6 +533,9 @@ async def api_generate_response(
     db.add(resp_record)
     await db.commit()
 
+    # Post-commit: publish to in-memory broadcaster for live SSE clients
+    _publish_in_memory_traffic_event(req_record)
+
     # 8. Structured Observability Event
     log_router_event(
         event_name="request_completed",
@@ -569,24 +621,170 @@ async def get_traffic_feed(limit: int = 50, db: AsyncSession = Depends(get_db)):
 
 
 
+def normalize_traffic_payload(raw_data: Any) -> Optional[Dict[str, Any]]:
+    """
+    Normalize Redis Pub/Sub messages to the standard 10-field traffic item contract.
+    Handles both full traffic item dictionaries and structured log_router_event payloads.
+    """
+    try:
+        if isinstance(raw_data, (str, bytes)):
+            data = json.loads(raw_data)
+        elif isinstance(raw_data, dict):
+            data = raw_data
+        else:
+            return None
+
+        if not isinstance(data, dict):
+            return None
+
+        metadata = data.get("metadata") if isinstance(data.get("metadata"), dict) else {}
+
+        request_id = data.get("request_id") or ""
+        timestamp = data.get("timestamp") or datetime.datetime.now(datetime.timezone.utc).isoformat()
+        prompt = data.get("prompt") or metadata.get("prompt") or ""
+        task_type = data.get("task_type") or metadata.get("task_type") or "GENERAL_QA"
+        complexity = float(data.get("complexity", metadata.get("complexity", 0.5)))
+        selected_model = data.get("selected_model") or data.get("model") or ""
+        provider = data.get("provider") or ""
+        status = data.get("status") or metadata.get("status") or "SUCCESS"
+
+        latency = data.get("total_latency_ms")
+        if latency is None:
+            latency = data.get("duration_ms", 0.0)
+        total_latency_ms = float(latency or 0.0)
+
+        cost = data.get("estimated_cost")
+        if cost is None:
+            cost = metadata.get("cost", 0.0)
+        estimated_cost = float(cost or 0.0)
+
+        return {
+            "request_id": request_id,
+            "timestamp": timestamp,
+            "prompt": prompt,
+            "task_type": task_type,
+            "complexity": complexity,
+            "selected_model": selected_model,
+            "provider": provider,
+            "status": status,
+            "total_latency_ms": round(total_latency_ms, 2),
+            "estimated_cost": round(estimated_cost, 6),
+        }
+    except Exception as exc:
+        logger.warning("Failed to normalize traffic payload: %s", exc)
+        return None
+
+
 @router.get("/api/traffic/stream")
 async def traffic_stream():
-    redis = get_redis()
-    if not redis:
-        raise HTTPException(status_code=503, detail="Redis Pub/Sub not available")
-        
-    async def event_generator():
-        pubsub = redis.pubsub()
-        await pubsub.subscribe("traffic_stream")
+    """
+    SSE Live Stream endpoint for the Traffic Control Room visualization.
+    Pushes newly persisted requests to connected frontend clients.
+    Uses Redis Pub/Sub when available, otherwise falls back to InMemoryTrafficBroadcaster.
+    """
+    # In-Memory Broadcaster generator (primary fallback and standalone mechanism)
+    async def in_memory_event_generator(initial_seen_ids=None, initial_seen_order=None):
+        broadcaster = get_broadcaster()
+        # 1. Register queue BEFORE fetching snapshot to avoid race conditions
+        queue = broadcaster.subscribe()
+        seen_ids = initial_seen_ids if initial_seen_ids is not None else set()
+        seen_order = initial_seen_order if initial_seen_order is not None else deque()
         try:
-            async for message in pubsub.listen():
-                if message["type"] == "message":
-                    yield {"event": "traffic", "data": message["data"]}
+            # 2. Fetch and send initial database snapshot if not already queued or seen
+            async with AsyncSessionLocal() as session:
+                res = await session.execute(
+                    select(RequestRecord).order_by(desc(RequestRecord.timestamp)).limit(1)
+                )
+                latest = res.scalar_one_or_none()
+                if latest:
+                    # Check if this latest record is already queued from an in-flight commit
+                    queued_ids = broadcaster.get_queued_ids(queue)
+                    if latest.request_id not in queued_ids and latest.request_id not in seen_ids:
+                        seen_ids.add(latest.request_id)
+                        seen_order.append(latest.request_id)
+                        yield {
+                            "event": "traffic_event",
+                            "data": json.dumps(build_traffic_event_payload(latest)),
+                        }
+
+            # 3. Process queued events and wait without database polling
+            while True:
+                payload = await queue.get()
+                req_id = payload.get("request_id")
+                if req_id and req_id in seen_ids:
+                    # Deduplicate against initial snapshot or previously yielded event
+                    continue
+                if req_id:
+                    seen_ids.add(req_id)
+                    seen_order.append(req_id)
+                    if len(seen_order) > 500:
+                        oldest = seen_order.popleft()
+                        seen_ids.discard(oldest)
+
+                yield {
+                    "event": "traffic_event",
+                    "data": json.dumps(payload),
+                }
         finally:
-            await pubsub.unsubscribe("traffic_stream")
-            await pubsub.close()
-            
-    return EventSourceResponse(event_generator())
+            # Always unsubscribe in finally block on disconnect or termination
+            broadcaster.unsubscribe(queue)
+
+    redis = get_redis()
+    if redis:
+        async def redis_event_generator():
+            pubsub = redis.pubsub()
+            seen_ids = set()
+            seen_order = deque()
+            try:
+                await pubsub.subscribe("traffic_stream")
+                # 1. Initial snapshot from database
+                async with AsyncSessionLocal() as session:
+                    res = await session.execute(
+                        select(RequestRecord).order_by(desc(RequestRecord.timestamp)).limit(1)
+                    )
+                    latest = res.scalar_one_or_none()
+                    if latest:
+                        seen_ids.add(latest.request_id)
+                        seen_order.append(latest.request_id)
+                        yield {
+                            "event": "traffic_event",
+                            "data": json.dumps(build_traffic_event_payload(latest)),
+                        }
+
+                # 2. Stream live events from Redis Pub/Sub
+                async for message in pubsub.listen():
+                    if message["type"] == "message":
+                        payload = normalize_traffic_payload(message["data"])
+                        if payload:
+                            req_id = payload.get("request_id")
+                            if req_id and req_id in seen_ids:
+                                continue
+                            if req_id:
+                                seen_ids.add(req_id)
+                                seen_order.append(req_id)
+                                if len(seen_order) > 500:
+                                    oldest = seen_order.popleft()
+                                    seen_ids.discard(oldest)
+                            yield {
+                                "event": "traffic_event",
+                                "data": json.dumps(payload),
+                            }
+            except (asyncio.CancelledError, GeneratorExit):
+                raise
+            except Exception as exc:
+                logger.warning("Redis Pub/Sub error (%s); falling back to in-memory stream.", exc)
+                async for evt in in_memory_event_generator(seen_ids, seen_order):
+                    yield evt
+            finally:
+                try:
+                    await pubsub.unsubscribe("traffic_stream")
+                    await pubsub.close()
+                except Exception:
+                    pass
+
+        return EventSourceResponse(redis_event_generator())
+
+    return EventSourceResponse(in_memory_event_generator())
 
 @router.get("/api/traffic/export")
 async def export_traffic(
