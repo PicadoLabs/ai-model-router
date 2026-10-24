@@ -266,6 +266,8 @@ def _publish_in_memory_traffic_event(req_record: RequestRecord) -> None:
         logger.warning("Failed to publish traffic event to in-memory broadcaster: %s", exc)
 
 
+@router.post("/api/route/run", response_model=Dict[str, Any])
+@router.post("/api/route/stream", response_model=Dict[str, Any])
 @router.post("/api/generate", response_model=Dict[str, Any])
 async def api_generate_response(
     req: GenerateRequest, 
