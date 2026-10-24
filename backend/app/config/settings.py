@@ -27,6 +27,7 @@ class Settings(BaseSettings):
     GEMINI_API_KEY: Optional[str] = None
     DEEPSEEK_API_KEY: Optional[str] = None
     TOGETHER_API_KEY: Optional[str] = None
+    GROQ_API_KEY: Optional[str] = None
 
     # Budgets
     DAILY_BUDGET: float = 10.00
