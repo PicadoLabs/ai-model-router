@@ -36,9 +36,24 @@ def log_router_event(
         "duration_ms": duration_ms,
     }
     if metadata:
-        # Sanitize any key that looks like an API token
+        # Sanitize any key that looks like an API credential. Token *counts*
+        # (input_tokens, output_tokens, total_tokens) are metrics, not
+        # secrets, and must survive redaction - hence the token-count
+        # whitelist before the looks-secret test, all inside one
+        # parenthesised group so precedence cannot surprise again.
         safe_meta = {
-            k: ("[REDACTED]" if "key" in k.lower() or "secret" in k.lower() or "token" in k.lower() and "count" not in k.lower() else v)
+            k: (
+                "[REDACTED]"
+                if (
+                    "key" in k.lower()
+                    or "secret" in k.lower()
+                    # singular 'auth_token'/'access_token' are credentials;
+                    # plural '*tokens' are the usage metrics
+                    or ("token" in k.lower() and not k.lower().endswith("tokens")
+                        and "count" not in k.lower())
+                )
+                else v
+            )
             for k, v in metadata.items()
         }
         payload["metadata"] = safe_meta
