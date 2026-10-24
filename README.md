@@ -304,7 +304,7 @@ curl -OJ "http://127.0.0.1:8000/api/traffic/export?format=csv"
 
 ## Running Tests
 
-The test suite includes **96 automated unit, integration, and end-to-end tests** covering semantic embedding classification, Thompson sampling RL auto-tuning, OpenTelemetry & Prometheus metrics, benchmarking Pareto evaluator, SDK clients, and circuit breakers:
+The test suite includes **131 automated unit, integration, and end-to-end tests** covering semantic embedding classification, Thompson sampling RL auto-tuning, OpenTelemetry & Prometheus metrics, benchmarking Pareto evaluator, SDK clients, and circuit breakers:
 
 ```bash
 # Run the complete test suite from repository root
@@ -338,7 +338,7 @@ ai-model-router/
 │   │   ├── providers/       # Adapters (Mock, Ollama, OpenAI, Anthropic, Gemini, DeepSeek, Groq)
 │   │   ├── router/          # Scoring matrix, pruner, rules engine & Thompson Sampling RL
 │   │   └── storage/         # SQLAlchemy models and SQLite async database
-│   ├── tests/               # Pytest suite (96 passing tests)
+│   ├── tests/               # Pytest suite (131 passing tests)
 │   └── main.py              # FastAPI application entrypoint
 ├── frontend/
 │   ├── src/

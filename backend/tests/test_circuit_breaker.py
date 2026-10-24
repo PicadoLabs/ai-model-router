@@ -17,11 +17,11 @@ def test_circuit_breaker_failure_trip():
     assert cb.is_available("openai") == False
 
 def test_circuit_breaker_cooldown_half_open():
-    cb = CircuitBreakerManager(failure_threshold=1, cooldown_seconds=0) # 0s cooldown
+    cb = CircuitBreakerManager(failure_threshold=1, cooldown_seconds=0.05)
     cb.record_failure("anthropic")
     assert cb.get_state("anthropic") == CircuitBreakerState.OPEN
     
-    time.sleep(0.01) # let cooldown pass
+    time.sleep(0.06) # let cooldown pass
     
     # State should be half-open
     assert cb.get_state("anthropic") == CircuitBreakerState.HALF_OPEN
