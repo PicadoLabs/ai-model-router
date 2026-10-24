@@ -109,7 +109,17 @@ class ASGIStreamTestClient:
         if self.disconnect_event and not self.disconnect_event.is_set():
             self.disconnect_event.set()
         if self.app_task:
-            await asyncio.wait_for(self.app_task, timeout=3.0)
+            try:
+                await asyncio.wait_for(asyncio.shield(self.app_task), timeout=0.5)
+            except Exception:
+                pass
+            finally:
+                if not self.app_task.done():
+                    self.app_task.cancel()
+                    try:
+                        await self.app_task
+                    except (asyncio.CancelledError, Exception):
+                        pass
 
 
 # =========================================================================
