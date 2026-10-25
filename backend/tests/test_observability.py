@@ -1,3 +1,6 @@
+import json
+from unittest.mock import patch
+
 import pytest
 from httpx import AsyncClient, ASGITransport
 from main import app
@@ -69,3 +72,40 @@ async def test_router_async_tracer_spans():
         pass
 
     assert span is not None
+
+
+def test_log_router_event_keeps_token_counts_and_redacts_secrets():
+    """issue #71: 'token' keys were redacted wholesale because 'and' bound
+    tighter than 'or'; token-count metrics are metrics, not secrets."""
+    from app.observability.events import log_router_event
+
+    captured = {}
+
+    def fake_info(payload, *args, **kwargs):
+        captured.update(json.loads(payload))
+
+    with patch("app.observability.events.logger.info", fake_info):
+        log_router_event(
+            "request_completed",
+            request_id="req-test-1",
+            provider="openai",
+            duration_ms=120,
+            metadata={
+                "input_tokens": 1200,
+                "output_tokens": 340,
+                "total_tokens": 1540,
+                "token_count": 1540,
+                "api_key": "sk-live-abc",
+                "secret_value": "hunter2",
+                "auth_token": "eyJhbGci",
+            },
+        )
+
+    meta = captured["metadata"]
+    assert meta["input_tokens"] == 1200
+    assert meta["output_tokens"] == 340
+    assert meta["total_tokens"] == 1540
+    assert meta["token_count"] == 1540
+    assert meta["api_key"] == "[REDACTED]"
+    assert meta["secret_value"] == "[REDACTED]"
+    assert meta["auth_token"] == "[REDACTED]"
