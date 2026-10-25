@@ -5,6 +5,7 @@ from app.providers.ollama_provider import OllamaProvider
 from app.providers.external_providers import OpenAIProvider, AnthropicProvider, GeminiProvider
 from app.providers.deepseek_provider import DeepSeekProvider
 from app.providers.together_provider import TogetherProvider
+from app.providers.groq_provider import GroqProvider
 from app.config.settings import get_settings
 
 settings = get_settings()
@@ -24,6 +25,7 @@ class ProviderRegistry:
             "gemini": GeminiProvider(api_key=settings.GEMINI_API_KEY),
             "deepseek": DeepSeekProvider(api_key=settings.DEEPSEEK_API_KEY),
             "together": TogetherProvider(api_key=settings.TOGETHER_API_KEY),
+            "groq": GroqProvider(api_key=settings.GROQ_API_KEY),
         }
 
     def get_provider(self, provider_id: str) -> Optional[ModelProvider]:

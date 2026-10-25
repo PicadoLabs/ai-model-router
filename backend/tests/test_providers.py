@@ -2,8 +2,9 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from app.providers.mock_provider import MockProvider
 from app.providers.deepseek_provider import DeepSeekProvider
+from app.providers.groq_provider import GroqProvider
 from app.providers.together_provider import TogetherProvider
-from app.providers.registry import provider_registry
+from app.providers.registry import ProviderRegistry, provider_registry, settings
 
 
 @pytest.mark.asyncio
@@ -33,6 +34,23 @@ async def test_registry_contains_deepseek_and_together():
     assert isinstance(deepseek, DeepSeekProvider)
     assert together is not None
     assert isinstance(together, TogetherProvider)
+
+
+@pytest.mark.asyncio
+async def test_registry_contains_configured_groq(monkeypatch):
+    monkeypatch.setattr(settings, "GROQ_API_KEY", "test-key")
+    provider = ProviderRegistry().get_provider("groq")
+    assert isinstance(provider, GroqProvider)
+    assert provider.api_key == "test-key"
+
+    mock_resp = AsyncMock()
+    mock_resp.raise_for_status = lambda: None
+    mock_resp.json = lambda: {"choices": [{"message": {"content": "Groq response"}}]}
+    with patch("httpx.AsyncClient.post", return_value=mock_resp) as post:
+        response = await provider.generate("Hello", model_id="test-model")
+
+    assert response.content == "Groq response"
+    assert post.call_args.kwargs["headers"]["Authorization"] == "Bearer test-key"
 
 
 @pytest.mark.asyncio
