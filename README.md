@@ -158,8 +158,13 @@ cp .env.example .env
 
 ### 3. Frontend Installation
 ```bash
+# Enter the frontend directory
 cd frontend
+
+# Install frontend dependencies
 npm install
+
+# Return to the repository root
 cd ..
 ```
 
@@ -311,7 +316,7 @@ The test suite includes **170 automated unit, integration, and end-to-end tests*
 pytest
 
 # Run tests with detailed coverage
-pytest --cov=app
+pytest --cov=backend/app
 ```
 
 ---
