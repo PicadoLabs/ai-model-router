@@ -1,4 +1,5 @@
 import pytest
+import asyncio
 from httpx import AsyncClient, ASGITransport
 from main import app
 from app.auth.rate_limiter import RateLimiter, rate_limiter
@@ -176,3 +177,134 @@ async def test_api_rate_limiter_enforcement_429():
         assert "Retry-After" in res3.headers
         assert res3.headers["X-RateLimit-Limit"] == "2"
         assert res3.headers["X-RateLimit-Remaining"] == "0"
+
+
+
+class FakePipeline:
+    """Queues commands and runs them on execute(), mimicking  Redis pipeline."""
+
+    def __init__(self, redis: "FakeRedis"):
+        self._redis = redis
+        self._ops = []
+
+    def zremrangebyscore(self, key, min_score, max_score) -> "FakePipeline":
+        self._ops.append(("zremrangebyscore", key, min_score, max_score))
+        return self
+
+    def zcard(self, key) -> "FakePipeline":
+        self._ops.append(("zcard", key))
+        return self
+
+    def zadd(self, key, mapping) -> "FakePipeline":
+        self._ops.append(("zadd", key, mapping))
+        return self
+
+    def expire(self, key, seconds) -> "FakePipeline":
+        self._ops.append(("expire", key, seconds))
+        return self
+
+    async def execute(self):
+        results = []
+        for name, *args in self._ops:
+            results.append(getattr(self._redis, f"_{name}")(*args))
+        self._ops = []
+        return results
+
+
+class FakeRedis:
+    """Minimal sorted-set fake. A repeated member overwrites its score,
+    exactly like real Redis, which is what exposes the collision bug."""
+
+    def __init__(self):
+        self.data = {}
+
+    def pipeline(self) -> FakePipeline:
+        return FakePipeline(self)
+
+    def _zremrangebyscore(self, key, min_score, max_score) -> int:
+        zset = self.data.get(key, {})
+        stale = [m for m, s in zset.items() if min_score <= s <= max_score]
+        for member in stale:
+            del zset[member]
+        return len(stale)
+
+    def _zcard(self, key) -> int:
+        return len(self.data.get(key, {}))
+
+    def _zadd(self, key, mapping: dict) -> int:
+        zset = self.data.setdefault(key, {})
+        # count total no. of new req in zset
+        added = sum(1 for member in mapping if member not in zset)
+        zset.update(mapping)
+        return added
+
+    def _expire(self, key, seconds) -> bool:
+        return True
+
+    async def zrem(self, key, *members) -> int:
+        zset = self.data.get(key, {})
+        # remove only selected members and return how many it removed
+        return sum(1 for member in members if zset.pop(member, None) is not None)
+
+    def members(self, key) -> set[str]:
+        return set(self.data.get(key, {}))
+
+
+REDIS_KEY = "ratelimit:user:60"
+
+
+@pytest.fixture
+def redis_clock(monkeypatch):
+    module = import_module("app.auth.rate_limiter")
+    fake = FakeRedis()
+    clock = [100.0]
+    monkeypatch.setattr(module, "get_redis", lambda: fake)
+    monkeypatch.setattr(module.time, "time", lambda: clock[0])
+    return fake, clock
+
+
+@pytest.mark.asyncio
+async def test_redis_same_timestamp_requests_all_counted(redis_clock):
+    fake, _ = redis_clock
+    limiter = RateLimiter()
+    remaining_values = []
+    for _ in range(3):
+        allowed, remaining, _ = await limiter.check_rate_limit("user", 5)
+        assert allowed is True
+        remaining_values.append(remaining)
+    assert remaining_values == [4, 3, 2]
+    assert len(fake.members(REDIS_KEY)) == 3
+
+
+@pytest.mark.asyncio
+async def test_redis_burst_at_same_timestamp_allows_exactly_limit(redis_clock):
+    fake, _ = redis_clock
+    limiter = RateLimiter()
+    results = await asyncio.gather(*(limiter.check_rate_limit("user", 3) for _ in range(10)))
+    assert sum(allowed for allowed, _, _ in results) == 3
+    assert len(fake.members(REDIS_KEY)) == 3
+
+
+@pytest.mark.asyncio
+async def test_redis_over_quota_rollback_keeps_other_entries(redis_clock):
+    fake, _ = redis_clock
+    limiter = RateLimiter()
+    for _ in range(3):
+        assert (await limiter.check_rate_limit("user", 3))[0]
+    members_before = fake.members(REDIS_KEY)
+    assert len(members_before) == 3
+
+    allowed, remaining, _ = await limiter.check_rate_limit("user", 3)
+
+    assert allowed is False
+    assert remaining == 0
+    assert fake.members(REDIS_KEY) == members_before
+
+
+@pytest.mark.asyncio
+async def test_redis_members_are_unique_per_request(redis_clock):
+    fake, _ = redis_clock
+    limiter = RateLimiter()
+    for _ in range(4):
+        await limiter.check_rate_limit("user", 10)
+    assert len(fake.members(REDIS_KEY)) == 4

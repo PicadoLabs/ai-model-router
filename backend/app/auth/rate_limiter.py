@@ -1,5 +1,6 @@
 import time
 import asyncio
+import uuid
 from collections import deque
 from typing import Dict, Tuple, Optional
 from fastapi import HTTPException
@@ -56,7 +57,8 @@ class RateLimiter:
                 # Count current valid entries
                 pipe.zcard(redis_key)
                 # Add current entry
-                pipe.zadd(redis_key, {f"{current_time}": current_time})
+                entry_id = f"{current_time}:{uuid.uuid4().hex[:8]}"
+                pipe.zadd(redis_key, {entry_id: current_time})
                 # Set TTL on key
                 pipe.expire(redis_key, window_seconds + 5)
                 results = await pipe.execute()
@@ -64,7 +66,7 @@ class RateLimiter:
                 current_count = results[1]
                 if current_count >= limit_rpm:
                     # Over limit - roll back current entry addition
-                    await redis.zrem(redis_key, f"{current_time}")
+                    await redis.zrem(redis_key, entry_id)
                     reset_after = max(1, int(window_seconds))
                     return False, 0, reset_after
 
