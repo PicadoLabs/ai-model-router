@@ -29,6 +29,11 @@ if settings.DATABASE_URL.startswith("sqlite"):
         try:
             cursor.execute(f"PRAGMA busy_timeout={SQLITE_BUSY_TIMEOUT_MS}")
             cursor.execute("PRAGMA journal_mode=WAL")
+            # SQLite enforces foreign keys only when asked, per connection:
+            # without this, cascade deletes between workspaces, keys and
+            # requests never fire.
+            cursor.execute("PRAGMA foreign_keys=ON")
+            cursor.execute("PRAGMA synchronous=NORMAL")
         finally:
             cursor.close()
 else:
