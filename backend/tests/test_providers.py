@@ -4,6 +4,7 @@ from app.providers.mock_provider import MockProvider
 from app.providers.deepseek_provider import DeepSeekProvider
 from app.providers.groq_provider import GroqProvider
 from app.providers.together_provider import TogetherProvider
+from app.providers.external_providers import GeminiProvider
 from app.providers.registry import ProviderRegistry, provider_registry, settings
 
 
@@ -51,6 +52,26 @@ async def test_registry_contains_configured_groq(monkeypatch):
 
     assert response.content == "Groq response"
     assert post.call_args.kwargs["headers"]["Authorization"] == "Bearer test-key"
+
+
+@pytest.mark.asyncio
+async def test_gemini_api_key_is_sent_in_header_not_url():
+    provider = GeminiProvider(api_key="test-secret-key")
+    mock_resp = AsyncMock()
+    mock_resp.raise_for_status = lambda: None
+    mock_resp.json = lambda: {
+        "candidates": [{"content": {"parts": [{"text": "Gemini response"}]}}],
+        "usageMetadata": {"promptTokenCount": 3, "candidatesTokenCount": 4, "totalTokenCount": 7},
+    }
+
+    with patch("httpx.AsyncClient.post", return_value=mock_resp) as post:
+        response = await provider.generate("Hello", model_id="gemini-2.5-flash")
+
+    assert response.content == "Gemini response", response.error
+    assert response.total_tokens == 7
+    assert post.call_args.args[0].endswith("/models/gemini-2.5-flash:generateContent")
+    assert "test-secret-key" not in post.call_args.args[0]
+    assert post.call_args.kwargs["headers"] == {"x-goog-api-key": "test-secret-key"}
 
 
 @pytest.mark.asyncio
