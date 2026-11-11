@@ -18,7 +18,7 @@ import {
   CheckCircle2
 } from 'lucide-react';
 import { RoutingMap } from '../components/RoutingMap';
-import { fetchApi } from '../lib/api';
+import { fetchApi, getApiUrl } from '../lib/api';
 import { ModelRecord, SystemAnalytics, TrafficItem, ProviderInfo } from '../types';
 
 interface DashboardProps {
@@ -39,7 +39,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
     fetchApi<SystemAnalytics>('/api/analytics').then(setAnalytics).catch(console.error);
     fetchApi<TrafficItem[]>('/api/traffic?limit=8').then(setLiveTraffic).catch(console.error);
 
-    const eventSource = new EventSource('http://localhost:8000/api/traffic/stream');
+    const eventSource = new EventSource(getApiUrl('/api/traffic/stream'));
     eventSource.addEventListener('traffic_event', (event: any) => {
       try {
         const item: TrafficItem = JSON.parse(event.data);

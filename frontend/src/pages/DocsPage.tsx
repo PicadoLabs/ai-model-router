@@ -104,7 +104,7 @@ export const DocsPage: React.FC<DocsPageProps> = ({ onNavigate }) => {
 from modelrouter import ModelRouter
 
 client = ModelRouter(
-    base_url="http://localhost:8000",
+    base_url="http://YOUR_ROUTER_HOST:8000",
     policy="balanced"  # 'balanced', 'lowest_cost', 'lowest_latency', 'highest_quality'
 )
 
@@ -122,7 +122,7 @@ from openai import OpenAI
 
 # Simply point base_url to Model Router proxy
 client = OpenAI(
-    base_url="http://localhost:8000/v1",
+    base_url="http://YOUR_ROUTER_HOST:8000/v1",
     api_key="mr_live_workspace_key"
 )
 
@@ -139,7 +139,7 @@ response = client.chat.completions.create(
 print(response.choices[0].message.content)`,
 
     curl: `# cURL Drop-in Chat Completion Request
-curl -X POST http://localhost:8000/v1/chat/completions \\
+curl -X POST http://YOUR_ROUTER_HOST:8000/v1/chat/completions \\
   -H "Content-Type: application/json" \\
   -H "Authorization: Bearer mr_live_workspace_key" \\
   -d '{
@@ -154,7 +154,7 @@ curl -X POST http://localhost:8000/v1/chat/completions \\
 import OpenAI from 'openai';
 
 const router = new OpenAI({
-  baseURL: 'http://localhost:8000/v1',
+  baseURL: 'http://YOUR_ROUTER_HOST:8000/v1',
   apiKey: process.env.MODEL_ROUTER_API_KEY || 'mr_live_key'
 });
 
