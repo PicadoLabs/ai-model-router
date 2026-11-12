@@ -1,6 +1,6 @@
 ﻿import React, { useEffect, useState } from 'react';
 import { Download, Radio, RefreshCw } from 'lucide-react';
-import { fetchApi } from '../lib/api';
+import { fetchApi, getApiUrl } from '../lib/api';
 import { TrafficItem } from '../types';
 
 export const Traffic: React.FC = () => {
@@ -22,14 +22,14 @@ export const Traffic: React.FC = () => {
 
   const exportTraffic = () => {
     window.open(
-      `http://localhost:8000/api/traffic/export?format=${exportFormat}`,
+      getApiUrl(`/api/traffic/export?format=${exportFormat}`),
       '_blank',
     );
   };
 
   useEffect(() => {
     loadTraffic();
-    const eventSource = new EventSource('http://localhost:8000/api/traffic/stream');
+    const eventSource = new EventSource(getApiUrl('/api/traffic/stream'));
     eventSource.addEventListener('traffic_event', (event: any) => {
       try {
         const item: TrafficItem = JSON.parse(event.data);

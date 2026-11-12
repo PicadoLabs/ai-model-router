@@ -1,7 +1,11 @@
-﻿const API_BASE = 'http://localhost:8000';
+﻿const API_BASE = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
+
+export function getApiUrl(endpoint: string): string {
+  return endpoint.startsWith('http') ? endpoint : `${API_BASE}${endpoint}`;
+}
 
 export async function fetchApi<T>(endpoint: string, options?: RequestInit): Promise<T> {
-  const url = endpoint.startsWith('http') ? endpoint : `${API_BASE}${endpoint}`;
+  const url = getApiUrl(endpoint);
   const res = await fetch(url, {
     ...options,
     headers: {

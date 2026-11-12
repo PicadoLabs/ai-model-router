@@ -38,7 +38,7 @@ export const StartPage: React.FC<StartPageProps> = ({ onNavigate }) => {
 from modelrouter import ModelRouterClient
 
 client = ModelRouterClient(
-    base_url="http://localhost:8000",
+    base_url="http://YOUR_ROUTER_HOST:8000",
     strategy="${selectedStrategy === 'cost' ? 'cost_optimized' : selectedStrategy === 'speed' ? 'speed_optimized' : selectedStrategy === 'quality' ? 'quality_optimized' : 'thompson_sampling'}"
 )
 
@@ -55,7 +55,7 @@ print(result.content)`;
 
     if (selectedLang === 'curl') {
       return `# Send standard OpenAI-compatible JSON payload to Model Router
-curl -X POST http://localhost:8000/v1/chat/completions \\
+curl -X POST http://YOUR_ROUTER_HOST:8000/v1/chat/completions \\
   -H "Content-Type: application/json" \\
   -H "Authorization: Bearer mr_live_key" \\
   -d '{
@@ -71,7 +71,7 @@ curl -X POST http://localhost:8000/v1/chat/completions \\
 import OpenAI from 'openai';
 
 const router = new OpenAI({
-  baseURL: 'http://localhost:8000/v1',
+  baseURL: 'http://YOUR_ROUTER_HOST:8000/v1',
   apiKey: process.env.MODEL_ROUTER_API_KEY || 'mr_live_key'
 });
 
@@ -92,7 +92,7 @@ run();`;
 from langchain_openai import ChatOpenAI
 
 llm = ChatOpenAI(
-    base_url="http://localhost:8000/v1",
+    base_url="http://YOUR_ROUTER_HOST:8000/v1",
     api_key="mr_live_key",
     model="auto"  # Model Router intercepts and routes intelligently
 )

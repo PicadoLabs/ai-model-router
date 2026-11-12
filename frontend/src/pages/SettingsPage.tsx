@@ -16,7 +16,7 @@ import {
   Activity,
   Lock
 } from 'lucide-react';
-import { fetchApi } from '../lib/api';
+import { fetchApi, getApiUrl } from '../lib/api';
 import { useTheme } from '../ThemeContext';
 import { Workspace, ApiKeyItem } from '../types';
 
@@ -250,7 +250,7 @@ export const SettingsPage: React.FC = () => {
         </p>
         <div className="flex flex-wrap items-center gap-3 pt-2">
           <a
-            href="http://localhost:8000/metrics"
+            href={getApiUrl('/metrics')}
             target="_blank"
             rel="noreferrer"
             className="px-3.5 py-2 rounded-lg bg-bg-primary border border-border-subtle text-xs text-accent-primary hover:border-accent-primary font-bold flex items-center gap-1.5"
@@ -258,7 +258,7 @@ export const SettingsPage: React.FC = () => {
             <Activity className="w-3.5 h-3.5" /> Prometheus Metrics (/metrics)
           </a>
           <a
-            href="http://localhost:8000/docs"
+            href={getApiUrl('/docs')}
             target="_blank"
             rel="noreferrer"
             className="px-3.5 py-2 rounded-lg bg-bg-primary border border-border-subtle text-xs text-text-primary hover:border-accent-primary font-bold"
