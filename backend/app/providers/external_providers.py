@@ -255,7 +255,7 @@ class GeminiProvider(ModelProvider):
                 provider="gemini",
             )
 
-        endpoint = f"{self.base_url}/models/{model_id}:generateContent?key={self.api_key}"
+        endpoint = f"{self.base_url}/models/{model_id}:generateContent"
         contents = []
         if system_prompt:
             contents.append({"role": "user", "parts": [{"text": f"System context: {system_prompt}"}]})
@@ -269,7 +269,7 @@ class GeminiProvider(ModelProvider):
         start_time = time.perf_counter()
         try:
             async with httpx.AsyncClient(timeout=settings.PROVIDER_TIMEOUT_SECONDS) as client:
-                resp = await client.post(endpoint, json=payload)
+                resp = await client.post(endpoint, json=payload, headers={"x-goog-api-key": self.api_key})
                 resp.raise_for_status()
                 data = resp.json()
 
