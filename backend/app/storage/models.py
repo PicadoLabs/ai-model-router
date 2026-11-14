@@ -159,7 +159,7 @@ class RoutingDecisionRecord(Base):
     __tablename__ = "routing_decisions"
 
     decision_id = Column(String(100), primary_key=True)
-    request_id = Column(String(100), ForeignKey("requests.request_id"), nullable=False, index=True)
+    request_id = Column(String(100), ForeignKey("requests.request_id", ondelete="CASCADE"), nullable=False, index=True)
     timestamp = Column(DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc), index=True)
     
     selected_model = Column(String(100), nullable=False)
@@ -174,7 +174,7 @@ class ResponseRecord(Base):
     __tablename__ = "responses"
 
     response_id = Column(String(100), primary_key=True)
-    request_id = Column(String(100), ForeignKey("requests.request_id"), nullable=False)
+    request_id = Column(String(100), ForeignKey("requests.request_id", ondelete="CASCADE"), nullable=False)
     timestamp = Column(DateTime, default=lambda: datetime.datetime.now(datetime.timezone.utc))
     model_id = Column(String(100), nullable=False)
     provider = Column(String(50), nullable=False)
@@ -187,7 +187,7 @@ class FeedbackRecord(Base):
     __tablename__ = "feedback"
 
     id = Column(String(100), primary_key=True)
-    request_id = Column(String(100), ForeignKey("requests.request_id"), nullable=False)
+    request_id = Column(String(100), ForeignKey("requests.request_id", ondelete="CASCADE"), nullable=False)
     model_id = Column(String(100), nullable=False)
     task_type = Column(String(50), nullable=False)
     rating = Column(Integer, nullable=False)  # 1 for thumbs up, -1 for thumbs down
@@ -226,7 +226,7 @@ class ExperimentRunRecord(Base):
 
     id = Column(String(100), primary_key=True)
     experiment_id = Column(String(100), ForeignKey("experiments.id"), nullable=False)
-    request_id = Column(String(100), ForeignKey("requests.request_id"), nullable=False)
+    request_id = Column(String(100), ForeignKey("requests.request_id", ondelete="CASCADE"), nullable=False)
     assigned_policy = Column(String(50), nullable=False)
     selected_model = Column(String(100), nullable=False)
     cost = Column(Float, default=0.0)

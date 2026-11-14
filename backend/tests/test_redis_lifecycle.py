@@ -19,7 +19,13 @@ from sqlalchemy import delete
 from app.server import app, lifespan
 from app.config.settings import get_settings
 from app.storage.database import init_db, AsyncSessionLocal
-from app.storage.models import RequestRecord
+from app.storage.models import (
+    ExperimentRunRecord,
+    FeedbackRecord,
+    RequestRecord,
+    ResponseRecord,
+    RoutingDecisionRecord,
+)
 from app.storage.redis_client import init_redis, close_redis, get_redis, publish_traffic_event
 from app.storage.events_channel import get_broadcaster
 from tests.test_traffic_sse import ASGIStreamTestClient
@@ -30,7 +36,8 @@ async def cleanup_environment():
     """Reset Redis, database records, and broadcaster state before and after each test."""
     await init_db()
     async with AsyncSessionLocal() as session:
-        await session.execute(delete(RequestRecord))
+        for record in (ExperimentRunRecord, FeedbackRecord, ResponseRecord, RoutingDecisionRecord, RequestRecord):
+            await session.execute(delete(record))
         await session.commit()
     await close_redis()
     broadcaster = get_broadcaster()

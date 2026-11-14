@@ -22,7 +22,13 @@ from sqlalchemy import event, desc, select, delete
 
 from app.server import app
 from app.storage.database import init_db, AsyncSessionLocal, engine
-from app.storage.models import RequestRecord
+from app.storage.models import (
+    ExperimentRunRecord,
+    FeedbackRecord,
+    RequestRecord,
+    ResponseRecord,
+    RoutingDecisionRecord,
+)
 from app.storage.events_channel import get_broadcaster
 from app.api.routes import normalize_traffic_payload, build_traffic_event_payload
 
@@ -46,7 +52,8 @@ async def setup_test_environment():
     """Ensure database is initialized, records cleared, and broadcaster reset."""
     await init_db()
     async with AsyncSessionLocal() as session:
-        await session.execute(delete(RequestRecord))
+        for record in (ExperimentRunRecord, FeedbackRecord, ResponseRecord, RoutingDecisionRecord, RequestRecord):
+            await session.execute(delete(record))
         await session.commit()
 
     broadcaster = get_broadcaster()
