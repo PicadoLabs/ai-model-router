@@ -486,10 +486,12 @@ async def init_db():
                 )
             )
 
-        # Check default API Keys
+        # Seed the known demo key only in unauthenticated local development.
+        # Never materialize a predictable master credential in production or
+        # any deployment that explicitly enables authentication.
         res_k = await session.execute(select(ApiKeyRecord))
         keys = res_k.scalars().all()
-        if not keys:
+        if not keys and settings.APP_ENV == "development" and not settings.AUTH_REQUIRED:
             import hashlib
             dev_key = "mr_live_dev_master_key_12345"
             dev_hash = hashlib.sha256(dev_key.encode("utf-8")).hexdigest()
