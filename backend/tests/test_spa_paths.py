@@ -1,5 +1,7 @@
 """SPA assets must never escape their configured static directory."""
 
+import errno
+
 import pytest
 from fastapi import HTTPException
 
@@ -31,7 +33,15 @@ def test_spa_rejects_symlinks_outside_static_directory(tmp_path):
     static.mkdir()
     private = tmp_path / "private.env"
     private.write_text("synthetic")
-    (static / "private.env").symlink_to(private)
+    try:
+        (static / "private.env").symlink_to(private)
+    except OSError as exc:
+        if getattr(exc, "winerror", None) == 1314 or exc.errno in (
+            errno.EACCES,
+            errno.EPERM,
+        ):
+            pytest.skip("Filesystem symlinks not permitted in this environment")
+        raise
 
     with pytest.raises(HTTPException) as exc:
         resolve_static_asset(str(static), "private.env")
