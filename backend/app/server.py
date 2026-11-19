@@ -1,6 +1,7 @@
 import asyncio
 import json
 import os
+from pathlib import Path
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -77,6 +78,16 @@ from app.api.routes import traffic_stream as stream_live_traffic
 # Serve Bundled Frontend (SPA) if static directory exists
 STATIC_DIR = os.path.join(os.path.dirname(__file__), "static")
 
+
+def resolve_static_asset(static_dir: str, full_path: str) -> str:
+    """Resolve an SPA asset without following paths or symlinks outside its root."""
+    root = Path(static_dir).resolve()
+    target = (root / full_path).resolve()
+    if not target.is_relative_to(root):
+        raise HTTPException(status_code=403, detail="Access denied")
+    return str(target)
+
+
 if os.path.exists(STATIC_DIR):
     assets_dir = os.path.join(STATIC_DIR, "assets")
     if os.path.exists(assets_dir):
@@ -87,10 +98,10 @@ if os.path.exists(STATIC_DIR):
         if full_path.startswith("api/") or full_path.startswith("docs") or full_path.startswith("openapi.json"):
             raise HTTPException(status_code=404, detail="Not Found")
         
-        target_file = os.path.join(STATIC_DIR, full_path)
+        target_file = resolve_static_asset(STATIC_DIR, full_path)
         if os.path.exists(target_file) and os.path.isfile(target_file):
             return FileResponse(target_file)
-        return FileResponse(os.path.join(STATIC_DIR, "index.html"))
+        return FileResponse(resolve_static_asset(STATIC_DIR, "index.html"))
 else:
     @app.get("/")
     async def root():
