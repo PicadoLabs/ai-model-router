@@ -1,11 +1,32 @@
 from unittest.mock import AsyncMock, patch
+import httpx
 import pytest
 from app.providers.mock_provider import MockProvider
 from app.providers.deepseek_provider import DeepSeekProvider
 from app.providers.groq_provider import GroqProvider
 from app.providers.together_provider import TogetherProvider
-from app.providers.external_providers import GeminiProvider
+from app.providers.external_providers import GeminiProvider, OpenAIProvider
 from app.providers.registry import ProviderRegistry, provider_registry, settings
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("provider_class", [OpenAIProvider, GroqProvider, TogetherProvider, DeepSeekProvider])
+async def test_stream_ignores_usage_only_chunks(provider_class):
+    body = (
+        'data: {"choices":[{"delta":{"role":"assistant"}}]}\n\n'
+        'data: {"choices":[{"delta":{"content":"Hello"}}]}\n\n'
+        'data: {"choices":[{"delta":{"content":" world"}}]}\n\n'
+        'data: {"choices":[],"usage":{"completion_tokens":2}}\n\n'
+        'data: [DONE]\n\n'
+    )
+    transport = httpx.MockTransport(lambda _: httpx.Response(200, text=body))
+    async_client = httpx.AsyncClient(transport=transport)
+
+    with patch("httpx.AsyncClient", return_value=async_client):
+        provider = provider_class(api_key="test-key")
+        chunks = [chunk async for chunk in provider.stream("Say hello", model_id="test-model")]
+
+    assert chunks == ["Hello", " world"]
 
 
 @pytest.mark.asyncio

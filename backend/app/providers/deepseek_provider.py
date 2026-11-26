@@ -126,7 +126,10 @@ class DeepSeekProvider(ModelProvider):
                         if line.startswith("data: ") and not line.endswith("[DONE]"):
                             import json
                             data = json.loads(line[6:])
-                            delta = data["choices"][0].get("delta", {}).get("content", "")
+                            choices = data["choices"]
+                            if not choices:
+                                continue
+                            delta = choices[0].get("delta", {}).get("content", "")
                             if delta:
                                 yield delta
         except Exception as exc:
